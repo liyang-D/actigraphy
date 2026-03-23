@@ -1,4 +1,5 @@
 import argparse
+import sys
 
 from io import load_raw_csv, save_epoch_svm_csv
 from models import EpochSVMData, PreprocessConfig, RawTriAxialData
@@ -10,6 +11,7 @@ from preprocess.svm import compute_svm
 def run_preprocessing(
     raw_data: RawTriAxialData,
     config: PreprocessConfig,
+    verbose: bool = False,
 ) -> EpochSVMData:
     raw_data.validate()
     config.validate()
@@ -17,16 +19,46 @@ def run_preprocessing(
     working_data = raw_data.copy()
 
     if config.apply_filter:
-        working_data = apply_bandpass_filter(
-            raw_data=working_data,
-            low_cutoff=config.low_cutoff,
-            high_cutoff=config.high_cutoff,
-            sample_rate=config.sample_rate,
-            order=4,
-        )
+        try:
+            if verbose:
+                print(" ** Apply Butterworth Filter")
+                print(f" --- Low = {config.low_cutoff} Hz")
+                print(f" --- High = {config.high_cutoff} Hz")
 
-    data_with_svm = compute_svm(working_data)
-    return epoch_svm(data_with_svm, config.binsize)
+            working_data = apply_bandpass_filter(
+                raw_data=working_data,
+                low_cutoff=config.low_cutoff,
+                high_cutoff=config.high_cutoff,
+                sample_rate=config.sample_rate,
+                order=4,
+            )
+        except Exception:
+            print(
+                "Error Bandpass Filtering: check CSV file for compatibility, "
+                "correct columns and ordering: Time, Ax, Ay, Az"
+            )
+            raise
+
+    try:
+        if verbose:
+            print(" ** Computing Signal Vector Magnitude")
+
+        data_with_svm = compute_svm(working_data)
+    except Exception:
+        print(
+            "Error computing SVM, check CSV file for compatibility and "
+            "correct columns and ordering: Time, Ax, Ay, Az"
+        )
+        sys.exit(1)
+
+    try:
+        if verbose:
+            print(" ** Downsampling")
+
+        return epoch_svm(data_with_svm, config.binsize)
+    except Exception:
+        print("Error dowmsampling data: check that --binsize value makes sense")
+        sys.exit(1)
 
 
 def parse_args() -> argparse.Namespace:
@@ -82,18 +114,38 @@ def parse_args() -> argparse.Namespace:
         default=20.0,
         help="Bandpass high cutoff in Hz (default = 20)",
     )
+    parser.add_argument(
+        "-verbose",
+        type=str,
+        default="no",
+        choices=["yes", "no"],
+        help="Print progress messages during preprocessing (default = no)",
+    )
 
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    verbose = args.verbose == "yes"
 
-    print(" ** Loading source CSV file")
-    raw_data = load_raw_csv(
-        path=args.source,
-        sample_rate=args.samplerate,
-    )
+    try:
+        if verbose:
+            print(" ** Loading source CSV file")
+
+        raw_data = load_raw_csv(
+            path=args.source,
+            sample_rate=args.samplerate,
+        )
+    except FileNotFoundError:
+        print("Source file: " + args.source + " does not exist")
+        sys.exit(1)
+    except Exception:
+        print(
+            "Error loading source CSV file: check CSV file for compatibility, "
+            "correct columns and ordering: Time, Ax, Ay, Az"
+        )
+        sys.exit(1)
 
     config = PreprocessConfig(
         binsize=args.binsize,
@@ -103,18 +155,23 @@ def main() -> None:
         high_cutoff=args.high,
     )
 
-    if config.apply_filter:
-        print(" ** Apply Butterworth Filter")
-        print(f" --- Low = {config.low_cutoff} Hz")
-        print(f" --- High = {config.high_cutoff} Hz")
+    processed_data = run_preprocessing(
+        raw_data=raw_data,
+        config=config,
+        verbose=verbose,
+    )
 
-    print(" ** Computing Signal Vector Magnitude")
-    print(" ** Downsampling")
+    try:
+        if verbose:
+            print(" ** Saving results as CSV")
 
-    processed_data = run_preprocessing(raw_data, config)
-
-    print(" ** Saving results as CSV")
-    save_epoch_svm_csv(processed_data, args.out)
+        save_epoch_svm_csv(processed_data, args.out)
+    except FileNotFoundError:
+        print("Output file: " + args.out + " cannot be written -- check path exists")
+        sys.exit(1)
+    except Exception:
+        print("Error saving output CSV file")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
