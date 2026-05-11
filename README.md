@@ -195,3 +195,7 @@ python -m actigraphy.cli batch \
   --high 20 \
   --summary-mode full-summary
 ```
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
