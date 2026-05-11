@@ -1,0 +1,292 @@
+from __future__ import annotations
+
+import argparse
+import json
+import csv
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pandas as pd
+
+
+def parse_range(range_str: str | None) -> tuple[int | None, int | None]:
+    """
+    Parse a simple Python-style row/column range.
+
+    Examples:
+        None      -> (None, None)
+        "0:100"   -> (0, 100)
+        "100:"    -> (100, None)
+        ":100"    -> (None, 100)
+        "5"       -> (5, 6)
+
+    End index is exclusive.
+    """
+    if range_str is None:
+        return None, None
+
+    range_str = range_str.strip()
+
+    if not range_str:
+        return None, None
+
+    if ":" not in range_str:
+        index = int(range_str)
+        return index, index + 1
+
+    start_str, end_str = range_str.split(":", 1)
+
+    start = int(start_str) if start_str.strip() else None
+    end = int(end_str) if end_str.strip() else None
+
+    return start, end
+
+
+def load_csv_raw(path: Path, skiprows: int = 0) -> pd.DataFrame:
+    rows: list[list[str]] = []
+
+    with path.open("r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.reader(f)
+        for row_index, row in enumerate(reader):
+            if row_index < skiprows:
+                continue
+            rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
+def select_range(
+    df: pd.DataFrame,
+    row_range: str | None = None,
+    col_range: str | None = None,
+) -> pd.DataFrame:
+    row_start, row_end = parse_range(row_range)
+    col_start, col_end = parse_range(col_range)
+
+    return df.iloc[row_start:row_end, col_start:col_end].copy()
+
+
+def coerce_numeric(df: pd.DataFrame) -> pd.DataFrame:
+    return df.apply(pd.to_numeric, errors="coerce")
+
+
+def compare_dataframes(
+    reference: pd.DataFrame,
+    candidate: pd.DataFrame,
+) -> dict[str, Any]:
+    if reference.shape != candidate.shape:
+        raise ValueError(
+            "Selected ranges must have the same shape. "
+            f"Reference shape: {reference.shape}, candidate shape: {candidate.shape}"
+        )
+
+    ref_numeric = coerce_numeric(reference)
+    cand_numeric = coerce_numeric(candidate)
+
+    ref_values = ref_numeric.to_numpy(dtype=float)
+    cand_values = cand_numeric.to_numpy(dtype=float)
+
+    diff = cand_values - ref_values
+    abs_diff = np.abs(diff)
+
+    valid_mask = ~np.isnan(ref_values) & ~np.isnan(cand_values)
+
+    if not np.any(valid_mask):
+        raise ValueError("No comparable numeric values found in the selected ranges.")
+
+    valid_diff = diff[valid_mask]
+    valid_abs_diff = abs_diff[valid_mask]
+
+    per_column: list[dict[str, Any]] = []
+
+    for col_idx in range(reference.shape[1]):
+        ref_col = ref_values[:, col_idx]
+        cand_col = cand_values[:, col_idx]
+
+        col_mask = ~np.isnan(ref_col) & ~np.isnan(cand_col)
+
+        if not np.any(col_mask):
+            per_column.append(
+                {
+                    "column_index": col_idx,
+                    "count": 0,
+                    "mean_error": None,
+                    "mean_absolute_error": None,
+                    "root_mean_squared_error": None,
+                    "max_absolute_error": None,
+                    "std_error": None,
+                }
+            )
+            continue
+
+        col_diff = cand_col[col_mask] - ref_col[col_mask]
+        col_abs_diff = np.abs(col_diff)
+
+        per_column.append(
+            {
+                "column_index": col_idx,
+                "count": int(col_mask.sum()),
+                "mean_error": float(np.mean(col_diff)),
+                "mean_absolute_error": float(np.mean(col_abs_diff)),
+                "root_mean_squared_error": float(np.sqrt(np.mean(col_diff**2))),
+                "max_absolute_error": float(np.max(col_abs_diff)),
+                "std_error": float(np.std(col_diff)),
+            }
+        )
+
+    return {
+        "shape": {
+            "rows": int(reference.shape[0]),
+            "columns": int(reference.shape[1]),
+        },
+        "overall": {
+            "count": int(valid_mask.sum()),
+            "mean_error": float(np.mean(valid_diff)),
+            "mean_absolute_error": float(np.mean(valid_abs_diff)),
+            "root_mean_squared_error": float(np.sqrt(np.mean(valid_diff**2))),
+            "max_absolute_error": float(np.max(valid_abs_diff)),
+            "std_error": float(np.std(valid_diff)),
+        },
+        "per_column": per_column,
+    }
+
+
+def save_summary(summary: dict[str, Any], output_path: Path) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with output_path.open("w", encoding="utf-8") as f:
+        json.dump(summary, f, indent=2, ensure_ascii=False)
+
+
+def print_summary(summary: dict[str, Any]) -> None:
+    print("Comparison summary")
+    print("==================")
+    print(f"Rows: {summary['shape']['rows']}")
+    print(f"Columns: {summary['shape']['columns']}")
+
+    overall = summary["overall"]
+
+    print("\nOverall")
+    print(f"Count: {overall['count']}")
+    print(f"Mean error: {overall['mean_error']}")
+    print(f"Mean absolute error: {overall['mean_absolute_error']}")
+    print(f"RMSE: {overall['root_mean_squared_error']}")
+    print(f"Max absolute error: {overall['max_absolute_error']}")
+    print(f"Std error: {overall['std_error']}")
+
+    print("\nPer column")
+    for col in summary["per_column"]:
+        print(
+            f"Column {col['column_index']}: "
+            f"count={col['count']}, "
+            f"MAE={col['mean_absolute_error']}, "
+            f"RMSE={col['root_mean_squared_error']}, "
+            f"max_abs={col['max_absolute_error']}"
+        )
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Compare selected numeric ranges from two CSV files. "
+            "The tool ignores headers semantically and compares values by row/column position."
+        )
+    )
+
+    parser.add_argument(
+        "--reference",
+        type=Path,
+        required=True,
+        help="Reference CSV path, for example the official GENEActiv CSV export.",
+    )
+    parser.add_argument(
+        "--candidate",
+        type=Path,
+        required=True,
+        help="Candidate CSV path, for example the CSV decoded by this pipeline.",
+    )
+
+    parser.add_argument(
+        "--reference-skiprows",
+        type=int,
+        default=0,
+        help="Rows to skip before reading the reference CSV.",
+    )
+    parser.add_argument(
+        "--candidate-skiprows",
+        type=int,
+        default=0,
+        help="Rows to skip before reading the candidate CSV.",
+    )
+
+    parser.add_argument(
+        "--reference-rows",
+        type=str,
+        default=None,
+        help="Row range for the reference CSV after skiprows, e.g. '0:1000'. End is exclusive.",
+    )
+    parser.add_argument(
+        "--candidate-rows",
+        type=str,
+        default=None,
+        help="Row range for the candidate CSV after skiprows, e.g. '0:1000'. End is exclusive.",
+    )
+
+    parser.add_argument(
+        "--reference-cols",
+        type=str,
+        required=True,
+        help="Column range for the reference CSV, e.g. '1:4'. End is exclusive.",
+    )
+    parser.add_argument(
+        "--candidate-cols",
+        type=str,
+        required=True,
+        help="Column range for the candidate CSV, e.g. '1:4'. End is exclusive.",
+    )
+
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Optional JSON file path for the comparison summary.",
+    )
+
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+
+    reference = load_csv_raw(
+        path=args.reference,
+        skiprows=args.reference_skiprows,
+    )
+    candidate = load_csv_raw(
+        path=args.candidate,
+        skiprows=args.candidate_skiprows,
+    )
+
+    reference_selected = select_range(
+        reference,
+        row_range=args.reference_rows,
+        col_range=args.reference_cols,
+    )
+    candidate_selected = select_range(
+        candidate,
+        row_range=args.candidate_rows,
+        col_range=args.candidate_cols,
+    )
+
+    summary = compare_dataframes(reference_selected, candidate_selected)
+
+    print_summary(summary)
+
+    if args.output is not None:
+        save_summary(summary, args.output)
+        print(f"\nSummary saved to: {args.output}")
+
+
+if __name__ == "__main__":
+    main()

@@ -6,3 +6,5 @@ venv/
 .env
 .idea/
 .vscode/
+data_test/
+test.py

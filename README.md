@@ -47,8 +47,8 @@ Use this when a fuller GENEActiv-style sample-level export is required.
 The reader also writes a sidecar metadata file:
 
 ```text
-sample.csv
-sample.metadata.json
+sample_raw.csv
+sample_raw.metadata.json
 ```
 
 The metadata contains available source information, such as device, recording, sampling frequency, and reader settings. It is stored as a separate file with the same base name to keep the CSV easy to read and to support anonymisation workflows.
@@ -140,7 +140,7 @@ Output file and metadata file names do not need to be specified manually. If `--
 
 ### Step 1A only
 
-For the reader stage, the output CSV is written to the output directory using the input file’s base name with `.csv` suffix. Each metadata file is written next to the output CSV using the same base name and the `.metadata.json` suffix.
+For the reader stage, the output CSV is written to the output directory using the input file’s base name with `_raw.csv` suffix. Each metadata file is written next to the output CSV using the same base name and the `_raw.metadata.json` suffix.
 
 ```bash
 python -m actigraphy.cli read \
@@ -156,8 +156,8 @@ For the preprocessing stage, the output CSV is written to the output directory u
 
 ```bash
 python -m actigraphy.cli preprocess \
-  --input data/intermediate/sample.csv \
-  --metadata data/intermediate/sample.metadata.json \
+  --input data/intermediate/sample_raw.csv \
+  --metadata data/intermediate/sample_raw.metadata.json \
   --output-dir data/processed \  # optional
   --epoch 60s \
   --filter yes \
