@@ -17,7 +17,7 @@ from ..base import (
 from .decode import decode_page
 from .header import parse_geneactive_main_header
 from .pages import iter_geneactive_pages
-from utils import parse_timestamp
+from utils import ensure_csv_path, parse_timestamp
 
 
 def get_output_columns(mode: str) -> list[str]:
@@ -57,7 +57,6 @@ def update_metadata_for_reader(
 def read_geneactive_bin(
     input_path: Path,
     output_csv_path: Path | None = None,
-    output_metadata_path: Path | None = None,
     output_dir: Path | None = None,
     mode: str = "full",
     max_pages: int | None = None,
@@ -74,9 +73,10 @@ def read_geneactive_bin(
             output_dir=output_dir,
             mode=mode,
         )
+    else:
+        output_csv_path = ensure_csv_path(output_csv_path, "Output CSV path")
 
-    if output_metadata_path is None:
-        output_metadata_path = default_metadata_path(output_csv_path)
+    output_metadata_path = default_metadata_path(output_csv_path)
 
     output_csv_path.parent.mkdir(parents=True, exist_ok=True)
     output_metadata_path.parent.mkdir(parents=True, exist_ok=True)
@@ -205,7 +205,6 @@ class GeneActiveReader(BaseDeviceReader):
         self,
         input_path: Path,
         output_csv_path: Path | None = None,
-        output_metadata_path: Path | None = None,
         output_dir: Path | None = None,
         mode: str = "full",
         max_pages: int | None = None,
@@ -214,7 +213,6 @@ class GeneActiveReader(BaseDeviceReader):
         return read_geneactive_bin(
             input_path=input_path,
             output_csv_path=output_csv_path,
-            output_metadata_path=output_metadata_path,
             output_dir=output_dir,
             mode=mode,
             max_pages=max_pages,

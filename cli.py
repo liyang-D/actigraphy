@@ -6,7 +6,7 @@ from pathlib import Path
 from models import PreprocessConfig
 from preprocess import preprocess_file, preprocess_raw_data_to_files
 from readers import available_readers, get_reader
-from utils import parse_yes_no
+from utils import ensure_csv_path, parse_yes_no
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -48,13 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         default=None,
-        help=argparse.SUPPRESS,
-    )
-    read_parser.add_argument(
-        "--metadata",
-        type=Path,
-        default=None,
-        help=argparse.SUPPRESS,
+        help="Optional output CSV path. Must end with .csv.",
     )
     read_parser.add_argument(
         "--max-pages",
@@ -77,15 +71,6 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         required=True,
         help="Input Step 1A CSV file.",
-    )
-    preprocess_parser.add_argument(
-        "--metadata",
-        type=Path,
-        default=None,
-        help=(
-            "Input Step 1A metadata JSON. Defaults to the input CSV path with "
-            ".metadata.json suffix."
-        ),
     )
     preprocess_parser.add_argument(
         "--output-dir",
@@ -126,19 +111,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--sample-rate",
         type=float,
         default=None,
-        help="Fallback sample rate in Hz if metadata is unavailable.",
+        help="Fallback sample rate in Hz if paired metadata is unavailable.",
     )
     preprocess_parser.add_argument(
         "--output",
         type=Path,
         default=None,
-        help=argparse.SUPPRESS,
-    )
-    preprocess_parser.add_argument(
-        "--metadata-output",
-        type=Path,
-        default=None,
-        help=argparse.SUPPRESS,
+        help="Optional output CSV path. Must end with .csv.",
     )
     preprocess_parser.add_argument(
         "--verbose",
@@ -172,13 +151,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         default=None,
-        help="Optional output CSV path. Overrides --output-dir default naming.",
-    )
-    process_parser.add_argument(
-        "--metadata-output",
-        type=Path,
-        default=None,
-        help="Optional output metadata JSON path.",
+        help="Optional output CSV path. Must end with .csv.",
     )
     process_parser.add_argument(
         "--epoch",
@@ -287,6 +260,13 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def optional_csv_output_path(path: Path | None) -> Path | None:
+    if path is None:
+        return None
+
+    return ensure_csv_path(path, "Output CSV path")
+
+
 def run_read(args: argparse.Namespace) -> tuple[Path, Path]:
     max_pages = None if args.max_pages in (None, 0) else args.max_pages
 
@@ -296,8 +276,7 @@ def run_read(args: argparse.Namespace) -> tuple[Path, Path]:
     reader = get_reader(args.reader)
     return reader.read(
         input_path=args.input,
-        output_csv_path=args.output,
-        output_metadata_path=args.metadata,
+        output_csv_path=optional_csv_output_path(args.output),
         output_dir=args.output_dir,
         mode=args.mode,
         max_pages=max_pages,
@@ -316,9 +295,7 @@ def run_preprocess(args: argparse.Namespace) -> tuple[Path, Path]:
 
     return preprocess_file(
         input_csv_path=args.input,
-        metadata_path=args.metadata,
-        output_csv_path=args.output,
-        output_metadata_path=args.metadata_output,
+        output_csv_path=optional_csv_output_path(args.output),
         output_dir=args.output_dir,
         config=config,
         fallback_sample_rate_hz=args.sample_rate,
@@ -364,6 +341,7 @@ def run_process(args: argparse.Namespace) -> tuple[Path, Path]:
     config = build_preprocess_config_from_summary_args(args)
     reader_mode = infer_reader_mode(config.summary_mode)
     reader = get_reader(args.reader)
+    output_csv_path = optional_csv_output_path(args.output)
 
     raw_data = reader.load_samples(
         input_path=args.input,
@@ -375,8 +353,7 @@ def run_process(args: argparse.Namespace) -> tuple[Path, Path]:
     return preprocess_raw_data_to_files(
         raw_data=raw_data,
         input_path=args.input,
-        output_csv_path=args.output,
-        output_metadata_path=args.metadata_output,
+        output_csv_path=output_csv_path,
         output_dir=args.output_dir,
         config=config,
         verbose=args.verbose,
@@ -425,6 +402,7 @@ def run_batch(args: argparse.Namespace) -> list[tuple[Path, Path]]:
             low=args.low,
             high=args.high,
             summary_mode=args.summary_mode,
+            output=None,
             max_pages=args.max_pages,
             verbose=args.verbose,
         )

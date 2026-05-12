@@ -15,6 +15,7 @@ from preprocess.io import (
     save_metadata,
 )
 from preprocess.svm import add_geneactive_svm
+from utils import ensure_csv_path
 
 
 def update_metadata_for_preprocessing(
@@ -100,9 +101,7 @@ def run_preprocessing(
 
 def preprocess_file(
     input_csv_path: Path,
-    metadata_path: Path | None = None,
     output_csv_path: Path | None = None,
-    output_metadata_path: Path | None = None,
     output_dir: Path | None = None,
     config: PreprocessConfig | None = None,
     fallback_sample_rate_hz: float | None = None,
@@ -110,10 +109,11 @@ def preprocess_file(
 ) -> tuple[Path, Path]:
     input_csv_path = Path(input_csv_path)
     config = PreprocessConfig() if config is None else config
+    if output_csv_path is not None:
+        output_csv_path = ensure_csv_path(output_csv_path, "Output CSV path")
 
     raw_data = load_raw_sample_csv(
         csv_path=input_csv_path,
-        metadata_path=metadata_path,
         fallback_sample_rate_hz=fallback_sample_rate_hz,
     )
 
@@ -121,7 +121,6 @@ def preprocess_file(
         raw_data=raw_data,
         input_path=input_csv_path,
         output_csv_path=output_csv_path,
-        output_metadata_path=output_metadata_path,
         output_dir=output_dir,
         config=config,
         verbose=verbose,
@@ -132,7 +131,6 @@ def preprocess_raw_data_to_files(
     raw_data: RawSampleData,
     input_path: Path,
     output_csv_path: Path | None = None,
-    output_metadata_path: Path | None = None,
     output_dir: Path | None = None,
     config: PreprocessConfig | None = None,
     verbose: bool = False,
@@ -146,9 +144,10 @@ def preprocess_raw_data_to_files(
             output_dir=output_dir,
             epoch=config.epoch,
         )
+    else:
+        output_csv_path = ensure_csv_path(output_csv_path, "Output CSV path")
 
-    if output_metadata_path is None:
-        output_metadata_path = default_epoch_metadata_path(output_csv_path)
+    output_metadata_path = default_epoch_metadata_path(output_csv_path)
 
     summary_data = run_preprocessing(
         raw_data=raw_data,

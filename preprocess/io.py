@@ -7,11 +7,17 @@ from typing import Any
 import pandas as pd
 
 from models import EpochSummaryData, RawSampleData
-from utils import normalize_epoch_label, parse_float, parse_timestamp
+from utils import (
+    ensure_csv_path,
+    metadata_path_for_csv,
+    normalize_epoch_label,
+    parse_float,
+    parse_timestamp,
+)
 
 
 def default_raw_metadata_path(input_csv_path: Path) -> Path:
-    return input_csv_path.with_suffix(".metadata.json")
+    return metadata_path_for_csv(input_csv_path)
 
 
 def default_epoch_output_csv_path(
@@ -27,11 +33,14 @@ def default_epoch_output_csv_path(
         output_base = output_base[:-4]
 
     epoch_label = normalize_epoch_label(epoch)
-    return output_dir / f"{output_base}_{epoch_label}.csv"
+    return ensure_csv_path(
+        output_dir / f"{output_base}_{epoch_label}.csv",
+        "Output CSV path",
+    )
 
 
 def default_epoch_metadata_path(output_csv_path: Path) -> Path:
-    return Path(output_csv_path).with_suffix(".metadata.json")
+    return metadata_path_for_csv(output_csv_path)
 
 
 def load_metadata(path: Path) -> dict[str, Any]:
@@ -59,8 +68,8 @@ def get_sample_rate_hz(
 
     if sample_rate is None:
         raise ValueError(
-            "Sample rate was not found in metadata. Provide Step 1A metadata or "
-            "pass --sample-rate."
+            "Sample rate was not found in the paired Step 1A metadata. "
+            "Use the metadata file next to the input CSV or pass --sample-rate."
         )
 
     if sample_rate <= 0:
@@ -71,17 +80,10 @@ def get_sample_rate_hz(
 
 def load_raw_sample_csv(
     csv_path: Path,
-    metadata_path: Path | None = None,
     fallback_sample_rate_hz: float | None = None,
 ) -> RawSampleData:
-    csv_path = Path(csv_path)
-    metadata_path_was_provided = metadata_path is not None
-
-    if metadata_path is None:
-        metadata_path = default_raw_metadata_path(csv_path)
-
-    if metadata_path_was_provided and not metadata_path.exists():
-        raise FileNotFoundError(f"Metadata file does not exist: {metadata_path}")
+    csv_path = ensure_csv_path(Path(csv_path), "Input CSV path")
+    metadata_path = default_raw_metadata_path(csv_path)
 
     metadata = load_metadata(metadata_path) if metadata_path.exists() else {}
     sample_rate_hz = get_sample_rate_hz(

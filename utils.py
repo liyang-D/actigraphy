@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from pathlib import Path
 
 
 NUMBER_PATTERN = re.compile(r"[-+]?\d+(?:\.\d+)?")
@@ -86,6 +87,20 @@ def parse_yes_no(value: str) -> bool:
         return False
 
     raise ValueError("value must be one of yes/no, true/false, 1/0, or on/off.")
+
+
+def ensure_csv_path(path: Path, label: str = "CSV path") -> Path:
+    path = Path(path)
+
+    if path.suffix.lower() != ".csv":
+        raise ValueError(f"{label} must end with .csv: {path}")
+
+    return path
+
+
+def metadata_path_for_csv(csv_path: Path) -> Path:
+    csv_path = ensure_csv_path(Path(csv_path))
+    return csv_path.with_suffix(".metadata.json")
 
 
 def parse_timestamp(value: str) -> datetime:

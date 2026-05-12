@@ -138,7 +138,7 @@ The metadata extends the raw metadata from Step 1A with preprocessing parameters
 
 ## Command Line Interface
 
-Output file and metadata file names do not need to be specified manually. If `--output-dir` is not specified, outputs are written to the same directory as the input file.
+Output file and metadata file names do not need to be specified manually. If `--output-dir` is not specified, outputs are written to the same directory as the input file. If `--output` is specified, it must end with `.csv`; the metadata path is always generated from the CSV path in the same directory using `.metadata.json`.
 
 ### Step 1A only
 
@@ -149,21 +149,18 @@ python -m cli read \
   --input data/raw/sample.bin \
   --output-dir data/intermediate \  # optional
   --output data/intermediate/sample_raw.csv \  # optional
-  --metadata data/intermediate/sample_raw.metadata.json \  # optional
   --mode full
 ```
 
 ### Step 1B only
 
-For the preprocessing stage, the output CSV is written to the output directory using the input file’s base name plus the epoch length with `.csv` suffix. Each metadata file is written next to the output CSV using the same base name and the `.metadata.json` suffix.
+For the preprocessing stage, the input metadata is read automatically from the input CSV path, for example `sample_raw.csv` uses `sample_raw.metadata.json`. The output CSV is written to the output directory using the input file’s base name plus the epoch length with `.csv` suffix. Each output metadata file is written next to the output CSV using the same base name and the `.metadata.json` suffix.
 
 ```bash
 python -m cli preprocess \
   --input data/intermediate/sample_raw.csv \
-  --metadata data/intermediate/sample_raw.metadata.json \
   --output-dir data/processed \  # optional
   --output data/processed/sample_60s.csv \  # optional
-  --metadata-output data/processed/sample_60s.metadata.json \  # optional
   --epoch 60s \
   --filter yes \
   --low 0.5 \
@@ -180,7 +177,6 @@ python -m cli process \
   --input data/raw/sample.bin \
   --output-dir data/processed \  # optional
   --output data/processed/sample_60s.csv \  # optional
-  --metadata-output data/processed/sample_60s.metadata.json \  # optional
   --epoch 60s \
   --filter yes \
   --low 0.5 \
@@ -228,6 +224,16 @@ python -m scripts.compare_csv \
   --reference-cols 1:4 \
   --candidate-cols 1:4 \
   --output data/reports/sample_raw_compare.json  # optional
+```
+
+To quickly compare two saved comparison JSON files, for example to see whether a filtered or unfiltered output has smaller errors, use:
+
+```bash
+python -m scripts.compare_comparison_json \
+  --left data/reports/sample_no_filter_compare.json \
+  --right data/reports/sample_filter_compare.json \
+  --left-label no_filter \
+  --right-label filter
 ```
 
 ## License

@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, ClassVar
 
+from utils import ensure_csv_path, metadata_path_for_csv
+
 
 READER_OUTPUT_COLUMNS: dict[str, list[str]] = {
     "motion": ["Time", "Ax", "Ay", "Az"],
@@ -28,11 +30,14 @@ def default_raw_output_csv_path(
     if output_dir is None:
         output_dir = input_path.parent
 
-    return output_dir / f"{input_path.stem}_raw.csv"
+    return ensure_csv_path(
+        output_dir / f"{input_path.stem}_raw.csv",
+        "Output CSV path",
+    )
 
 
 def default_metadata_path(output_csv_path: Path) -> Path:
-    return Path(output_csv_path).with_suffix(".metadata.json")
+    return metadata_path_for_csv(output_csv_path)
 
 
 def save_metadata(metadata: dict[str, Any], output_path: Path) -> None:
@@ -51,7 +56,6 @@ class BaseDeviceReader(ABC):
         self,
         input_path: Path,
         output_csv_path: Path | None = None,
-        output_metadata_path: Path | None = None,
         output_dir: Path | None = None,
         mode: str = "full",
         max_pages: int | None = None,
