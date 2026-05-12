@@ -204,6 +204,7 @@ The CSV comparison script compares values by row and column position, not by hea
 Optional arguments: `--reference-rows`, `--candidate-rows`, `--reference-cols`, `--candidate-cols`, and `--output`. 
 
 - If no row or column ranges are supplied, it skips the candidate CSV header row, aligns the reference CSV to the first candidate timestamp in column 0, and compares all candidate data rows.
+- In automatic mode, each compared row must have the same column count, and timestamps must keep the same adjacent and cumulative sampling interval in both files. This helps catch accidental raw-vs-epoch comparisons.
 - Omit `--output` to print the comparison summary only, or provide it to also save the comparison as JSON.
 
 ```bash

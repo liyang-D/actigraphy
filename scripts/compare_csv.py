@@ -4,15 +4,20 @@ import argparse
 import csv
 import json
 import math
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
 
+from utils import parse_timestamp
+
 
 IndexSelector = slice | list[int]
 RunningMetric = dict[str, float | int | None]
+TIMESTAMP_COLUMN_INDEX = 0
+SAMPLE_TIME_TOLERANCE = timedelta(milliseconds=1)
 
 
 def parse_range(range_str: str | None) -> IndexSelector:
@@ -101,6 +106,92 @@ def select_columns(row: list[str], col_selector: IndexSelector) -> list[str]:
         return [row[index] for index in col_selector]
 
     return row[col_selector]
+
+
+def validate_column_count(
+    row: list[str],
+    expected_columns: int,
+    row_label: str,
+) -> None:
+    if len(row) != expected_columns:
+        raise ValueError(
+            f"{row_label} has {len(row)} columns; expected {expected_columns}."
+        )
+
+
+def parse_row_timestamp(row: list[str], row_label: str) -> datetime:
+    if len(row) <= TIMESTAMP_COLUMN_INDEX:
+        raise ValueError(f"{row_label} does not contain a timestamp column.")
+
+    timestamp_text = clean_cell(row[TIMESTAMP_COLUMN_INDEX])
+
+    try:
+        return parse_timestamp(timestamp_text)
+    except ValueError as exc:
+        raise ValueError(
+            f"{row_label} has an unsupported timestamp in column 0: "
+            f"{timestamp_text!r}."
+        ) from exc
+
+
+def format_timedelta(value: timedelta) -> str:
+    return f"{value.total_seconds():.9f}s"
+
+
+def validate_sample_interval(
+    first_reference_time: datetime,
+    previous_reference_time: datetime,
+    reference_time: datetime,
+    first_candidate_time: datetime,
+    previous_candidate_time: datetime,
+    candidate_time: datetime,
+    previous_reference_label: str,
+    reference_label: str,
+    previous_candidate_label: str,
+    candidate_label: str,
+) -> None:
+    reference_delta = reference_time - previous_reference_time
+    candidate_delta = candidate_time - previous_candidate_time
+
+    if reference_delta <= timedelta(0):
+        raise ValueError(
+            "Reference timestamps must be strictly increasing. "
+            f"{previous_reference_label} to {reference_label} delta: "
+            f"{format_timedelta(reference_delta)}."
+        )
+
+    if candidate_delta <= timedelta(0):
+        raise ValueError(
+            "Candidate timestamps must be strictly increasing. "
+            f"{previous_candidate_label} to {candidate_label} delta: "
+            f"{format_timedelta(candidate_delta)}."
+        )
+
+    delta_difference = abs(reference_delta - candidate_delta)
+    if delta_difference > SAMPLE_TIME_TOLERANCE:
+        raise ValueError(
+            "Sampling interval mismatch between reference and candidate. "
+            f"Reference {previous_reference_label} to {reference_label}: "
+            f"{format_timedelta(reference_delta)}; "
+            f"candidate {previous_candidate_label} to {candidate_label}: "
+            f"{format_timedelta(candidate_delta)}. "
+            "This usually means the files are not at the same sampling rate "
+            "or a raw file is being compared with an epoch summary."
+        )
+
+    reference_elapsed = reference_time - first_reference_time
+    candidate_elapsed = candidate_time - first_candidate_time
+    elapsed_difference = abs(reference_elapsed - candidate_elapsed)
+    if elapsed_difference > SAMPLE_TIME_TOLERANCE:
+        raise ValueError(
+            "Sampling rate mismatch between reference and candidate. "
+            f"Elapsed reference time at {reference_label}: "
+            f"{format_timedelta(reference_elapsed)}; "
+            f"elapsed candidate time at {candidate_label}: "
+            f"{format_timedelta(candidate_elapsed)}. "
+            "This usually means the files are not at the same sampling rate "
+            "or a raw file is being compared with an epoch summary."
+        )
 
 
 def load_csv_range(
@@ -270,17 +361,8 @@ def compare_row_values(
 ) -> None:
     column_count = len(per_column_metrics)
 
-    if len(reference_row) < column_count:
-        raise ValueError(
-            "Reference row has fewer columns than the candidate row. "
-            f"Reference columns: {len(reference_row)}, candidate columns: {column_count}."
-        )
-
-    if len(candidate_row) < column_count:
-        raise ValueError(
-            "Candidate row has fewer columns than the first candidate data row. "
-            f"Row columns: {len(candidate_row)}, expected columns: {column_count}."
-        )
+    validate_column_count(reference_row, column_count, "Reference row")
+    validate_column_count(candidate_row, column_count, "Candidate row")
 
     for column_index in range(column_count):
         reference_value = parse_numeric(reference_row[column_index])
@@ -342,32 +424,45 @@ def compare_by_candidate_timestamp(
         candidate_reader = csv.reader(candidate_file)
         candidate_header = next(candidate_reader, None)
 
-        candidate_first_row = next(
-            (row for row in candidate_reader if row),
+        candidate_first_row_info = next(
+            (
+                (row_index, row)
+                for row_index, row in enumerate(candidate_reader, start=1)
+                if row
+            ),
             None,
         )
 
-        if candidate_first_row is None:
+        if candidate_first_row_info is None:
             raise ValueError("Candidate CSV does not contain any data rows.")
 
+        candidate_first_row_index, candidate_first_row = candidate_first_row_info
         start_time = clean_cell(candidate_first_row[0])
         column_count = len(candidate_first_row)
+
+        if candidate_header is not None:
+            validate_column_count(
+                candidate_header,
+                column_count,
+                "Candidate header row",
+            )
+
         if candidate_header is None:
             column_names = [f"column_{index}" for index in range(column_count)]
         else:
             column_names = [
                 clean_cell(value) if clean_cell(value) else f"column_{index}"
-                for index, value in enumerate(candidate_header[:column_count])
+                for index, value in enumerate(candidate_header)
             ]
-
-            if len(column_names) < column_count:
-                column_names.extend(
-                    f"column_{index}"
-                    for index in range(len(column_names), column_count)
-                )
 
         per_column_metrics = [init_running_metric() for _ in range(column_count)]
         overall_metric = init_running_metric()
+        first_candidate_time = parse_row_timestamp(
+            candidate_first_row,
+            f"candidate row {candidate_first_row_index}",
+        )
+        previous_candidate_time = first_candidate_time
+        previous_candidate_label = f"row {candidate_first_row_index}"
 
         with reference_path.open(
             "r",
@@ -390,7 +485,21 @@ def compare_by_candidate_timestamp(
                     f"{start_time}"
                 )
 
+            validate_column_count(
+                reference_first_row,
+                column_count,
+                f"Reference row {reference_start_row}",
+            )
+
+            first_reference_time = parse_row_timestamp(
+                reference_first_row,
+                f"reference row {reference_start_row}",
+            )
+            previous_reference_time = first_reference_time
+            previous_reference_label = f"row {reference_start_row}"
+
             rows_compared = 0
+            next_reference_row_index = reference_start_row + 1
             compare_row_values(
                 reference_row=reference_first_row,
                 candidate_row=candidate_first_row,
@@ -399,9 +508,22 @@ def compare_by_candidate_timestamp(
             )
             rows_compared += 1
 
-            for candidate_row in candidate_reader:
+            for candidate_row_index, candidate_row in enumerate(
+                candidate_reader,
+                start=candidate_first_row_index + 1,
+            ):
                 if not candidate_row:
                     continue
+
+                validate_column_count(
+                    candidate_row,
+                    column_count,
+                    f"Candidate row {candidate_row_index}",
+                )
+                candidate_time = parse_row_timestamp(
+                    candidate_row,
+                    f"candidate row {candidate_row_index}",
+                )
 
                 try:
                     reference_row = next(reference_reader)
@@ -410,6 +532,31 @@ def compare_by_candidate_timestamp(
                         "Reference CSV ended before all candidate rows were compared."
                     ) from exc
 
+                reference_row_index = next_reference_row_index
+                next_reference_row_index += 1
+
+                validate_column_count(
+                    reference_row,
+                    column_count,
+                    f"Reference row {reference_row_index}",
+                )
+                reference_time = parse_row_timestamp(
+                    reference_row,
+                    f"reference row {reference_row_index}",
+                )
+                validate_sample_interval(
+                    first_reference_time=first_reference_time,
+                    previous_reference_time=previous_reference_time,
+                    reference_time=reference_time,
+                    first_candidate_time=first_candidate_time,
+                    previous_candidate_time=previous_candidate_time,
+                    candidate_time=candidate_time,
+                    previous_reference_label=previous_reference_label,
+                    reference_label=f"row {reference_row_index}",
+                    previous_candidate_label=previous_candidate_label,
+                    candidate_label=f"row {candidate_row_index}",
+                )
+
                 compare_row_values(
                     reference_row=reference_row,
                     candidate_row=candidate_row,
@@ -417,6 +564,10 @@ def compare_by_candidate_timestamp(
                     overall_metric=overall_metric,
                 )
                 rows_compared += 1
+                previous_reference_time = reference_time
+                previous_reference_label = f"row {reference_row_index}"
+                previous_candidate_time = candidate_time
+                previous_candidate_label = f"row {candidate_row_index}"
 
     return finalize_stream_summary(
         rows=rows_compared,
@@ -424,7 +575,7 @@ def compare_by_candidate_timestamp(
         per_column_metrics=per_column_metrics,
         overall_metric=overall_metric,
         reference_start_row=reference_start_row,
-        candidate_start_row=1,
+        candidate_start_row=candidate_first_row_index,
         start_time=start_time,
         column_names=column_names,
     )
@@ -478,7 +629,8 @@ def build_parser() -> argparse.ArgumentParser:
             "Compare selected numeric ranges from two CSV files by row/column "
             "position. If no ranges are supplied, the candidate header row is "
             "skipped and the reference is aligned by the first candidate "
-            "timestamp."
+            "timestamp. Automatic alignment also validates column counts and "
+            "adjacent timestamp intervals."
         )
     )
     parser.add_argument(
