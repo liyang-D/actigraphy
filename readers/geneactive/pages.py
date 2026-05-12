@@ -8,18 +8,16 @@ from pathlib import Path
 from typing import Iterator
 
 from .models import GeneActivePage, GeneActivePageHeader
-from utils import clean_value, parse_float, parse_int
+from utils import (
+    parse_first_float,
+    parse_float,
+    parse_int,
+    parse_key_value_lines,
+    split_key_value,
+)
 
 
 PAGE_BLOCK_SIZE = 10
-
-
-def split_key_value(line: str) -> tuple[str, str | None]:
-    if ":" not in line:
-        return line.strip(), None
-
-    key, value = line.split(":", 1)
-    return key.strip(), clean_value(value)
 
 
 def parse_geneactive_datetime(value: str | None) -> datetime:
@@ -45,8 +43,7 @@ def parse_measurement_frequency(value: str | None) -> float:
     if value is None:
         raise ValueError("Missing measurement frequency.")
 
-    value = value.replace("Hz", "").strip()
-    parsed = parse_float(value)
+    parsed = parse_first_float(value)
 
     if parsed is None:
         raise ValueError(f"Invalid measurement frequency: {value}")
@@ -94,11 +91,7 @@ def validate_page_block(block_lines: list[str], page_number: int | None = None) 
 def parse_page_block(block_lines: list[str]) -> GeneActivePage:
     validate_page_block(block_lines)
 
-    fields: dict[str, str | None] = {}
-
-    for line in block_lines[1:9]:
-        key, value = split_key_value(line.strip())
-        fields[key] = value
+    fields = parse_key_value_lines(block_lines[1:9])
 
     sequence_number = parse_int(fields.get("Sequence Number"))
     if sequence_number is None:
@@ -174,17 +167,3 @@ def iter_geneactive_pages(
             yield parse_page_block(block)
         except Exception as exc:
             raise ValueError(f"Failed to parse page block {page_index}.") from exc
-
-
-def main() -> None:
-    test_bin_path = Path("data_test/CD000test_left wrist_109418_2025-08-28 12-14-52.bin")
-
-    first_page = next(iter_geneactive_pages(test_bin_path, max_pages=1))
-
-    print(first_page.header)
-    print("Hex length:", len(first_page.hex_data))
-    print("First 60 hex chars:", first_page.hex_data[:60])
-
-
-if __name__ == "__main__":
-    main()

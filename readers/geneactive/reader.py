@@ -2,45 +2,33 @@
 
 from __future__ import annotations
 
-import argparse
 import csv
-import json
 from pathlib import Path
 from typing import Any
 
+from ..base import (
+    BaseDeviceReader,
+    default_metadata_path,
+    default_raw_output_csv_path,
+    get_reader_output_columns,
+    save_metadata,
+)
 from .decode import decode_page
-from .header import parse_geneactive_main_header, save_metadata
+from .header import parse_geneactive_main_header
 from .pages import iter_geneactive_pages
 
 
-DEFAULT_TEST_BIN = Path(
-    "data_test/efthyvoulos__111238_2026-03-06 14-16-51.bin"
-)
-
-
 def get_output_columns(mode: str) -> list[str]:
-    if mode == "motion":
-        return ["Time", "Ax", "Ay", "Az"]
-
-    if mode == "full":
-        return ["Time", "Ax", "Ay", "Az", "Lux", "Button", "Temperature"]
-
-    raise ValueError("mode must be either 'motion' or 'full'.")
+    return get_reader_output_columns(mode)
 
 
-def default_output_csv_path(input_path: Path, output_dir: Path | None, mode: str) -> Path:
-    output_base = input_path.stem
-
-    if output_dir is None:
-        output_dir = input_path.parent
-
-    suffix = "_raw" if mode == "full" else "_motion"
-
-    return output_dir / f"{output_base}{suffix}.csv"
-
-
-def default_metadata_path(output_csv_path: Path) -> Path:
-    return output_csv_path.with_suffix(".metadata.json")
+def default_output_csv_path(
+    input_path: Path,
+    output_dir: Path | None,
+    mode: str,
+) -> Path:
+    get_output_columns(mode)
+    return default_raw_output_csv_path(input_path=input_path, output_dir=output_dir)
 
 
 def update_metadata_for_reader(
@@ -52,6 +40,7 @@ def update_metadata_for_reader(
     metadata = dict(metadata)
 
     metadata["reader_output"] = {
+        "reader": "geneactive",
         "output_file": str(output_csv_path),
         "mode": mode,
         "columns": get_output_columns(mode),
@@ -142,75 +131,26 @@ def read_geneactive_bin(
     return output_csv_path, output_metadata_path
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Read a GENEActiv .bin file and export sample-level CSV data."
-    )
+class GeneActiveReader(BaseDeviceReader):
+    name = "geneactive"
+    supported_extensions = (".bin",)
 
-    parser.add_argument(
-        "--input",
-        type=Path,
-        default=DEFAULT_TEST_BIN,
-        help="Input GENEActiv .bin file.",
-    )
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=None,
-        help="Output CSV path. If omitted, a default name is generated.",
-    )
-    parser.add_argument(
-        "--metadata",
-        type=Path,
-        default=None,
-        help="Output metadata JSON path. If omitted, a default name is generated.",
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=Path,
-        default=None,
-        help="Output directory. Used only when --output is omitted.",
-    )
-    parser.add_argument(
-        "--mode",
-        choices=["motion", "full"],
-        default="full",
-        help="Reader output mode.",
-    )
-    parser.add_argument(
-        "--max-pages",
-        type=int,
-        default=1,
-        help=(
-            "Maximum number of pages to process. "
-            "Use 1 by default for module-level testing. "
-            "Pass 0 to process all pages."
-        ),
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Print progress messages.",
-    )
-
-    return parser.parse_args()
-
-
-def main() -> None:
-    args = parse_args()
-
-    max_pages = None if args.max_pages == 0 else args.max_pages
-
-    read_geneactive_bin(
-        input_path=args.input,
-        output_csv_path=args.output,
-        output_metadata_path=args.metadata,
-        output_dir=args.output_dir,
-        mode=args.mode,
-        max_pages=max_pages,
-        verbose=args.verbose,
-    )
-
-
-if __name__ == "__main__":
-    main()
+    def read(
+        self,
+        input_path: Path,
+        output_csv_path: Path | None = None,
+        output_metadata_path: Path | None = None,
+        output_dir: Path | None = None,
+        mode: str = "full",
+        max_pages: int | None = None,
+        verbose: bool = False,
+    ) -> tuple[Path, Path]:
+        return read_geneactive_bin(
+            input_path=input_path,
+            output_csv_path=output_csv_path,
+            output_metadata_path=output_metadata_path,
+            output_dir=output_dir,
+            mode=mode,
+            max_pages=max_pages,
+            verbose=verbose,
+        )

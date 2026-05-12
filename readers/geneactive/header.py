@@ -1,31 +1,16 @@
 from __future__ import annotations
 
-import json
-import re
 from pathlib import Path
-from typing import Any
 
+from ..base import save_metadata as save_metadata
 from .models import GeneActiveHeader
-from utils import clean_value, parse_float, parse_int
-
-
-def split_key_value(line: str) -> tuple[str, str | None]:
-    if ":" not in line:
-        return line.strip(), None
-
-    key, value = line.split(":", 1)
-    return key.strip(), clean_value(value)
-
-
-def parse_measurement_frequency(value: str | None) -> float | None:
-    if not value:
-        return None
-
-    match = re.search(r"([-+]?\d+(?:\.\d+)?)", value)
-    if not match:
-        return None
-
-    return float(match.group(1))
+from utils import (
+    parse_first_float,
+    parse_float,
+    parse_int,
+    parse_key_value_lines,
+    split_key_value,
+)
 
 
 def read_header_lines(path: Path, n_lines: int = 59) -> list[str]:
@@ -94,26 +79,12 @@ def parse_sensor_info(header_lines: list[str]) -> dict[str, dict[str, str | None
 def parse_geneactive_main_header(path: Path) -> GeneActiveHeader:
     header_lines = read_header_lines(path, n_lines=59)
 
-    raw_fields: dict[str, str | None] = {}
-
-    for line in header_lines:
-        stripped = line.strip()
-
-        if not stripped:
-            continue
-
-        if ":" not in stripped:
-            continue
-
-        key, value = split_key_value(stripped)
-        raw_fields[key] = value
+    raw_fields = parse_key_value_lines(header_lines)
 
     def get(key: str) -> str | None:
         return raw_fields.get(key)
 
-    measurement_frequency_hz = parse_measurement_frequency(
-        get("Measurement Frequency")
-    )
+    measurement_frequency_hz = parse_first_float(get("Measurement Frequency"))
 
     sensor_info = parse_sensor_info(header_lines)
 
@@ -182,32 +153,3 @@ def parse_geneactive_main_header(path: Path) -> GeneActiveHeader:
         decoder_context=decoder_context,
         next_line_index=len(header_lines),
     )
-
-
-def save_metadata(metadata: dict[str, Any], output_path: Path) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with output_path.open("w", encoding="utf-8") as f:
-        json.dump(metadata, f, indent=2, ensure_ascii=False)
-
-
-def main() -> None:
-    test_bin_path = Path("data_test/efthyvoulos__111238_2026-03-06 14-16-51.bin")
-    result = parse_geneactive_main_header(test_bin_path)
-
-    output_metadata_path = test_bin_path.with_suffix(".metadata.json")
-
-    save_metadata(result.metadata, output_metadata_path)
-
-    print("Metadata saved to:")
-    print(output_metadata_path)
-
-    print("\nDecoder context:")
-    print(json.dumps(result.decoder_context, indent=2, ensure_ascii=False))
-
-    print("\nNext line index:")
-    print(result.next_line_index)
-
-
-if __name__ == "__main__":
-    main()
