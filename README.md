@@ -196,11 +196,19 @@ python -m cli batch \
 
 ## CSV Comparison Utility
 
-The CSV comparison script compares values by row and column position, not by header name, so users can align different CSV layouts explicitly. It does not skip rows automatically; if a CSV has a header row, exclude it with the row range, for example `1:`.
+The CSV comparison script compares values by row and column position, not by header name. Ranges use Python-style indexing. For example, `1:4` selects columns 1, 2, and 3; `0:1000` selects the first 1000 rows; `:` selects all rows or columns.
 
-Ranges use Python-style indexing. For example, `1:4` selects columns 1, 2, and 3; `0:1000` selects the first 1000 rows; `:` selects all rows or columns.
 
-Optional argument: `--output`; omit it to print the comparison summary only, or provide it to also save the comparison as JSON.
+Optional arguments: `--reference-rows`, `--candidate-rows`, `--reference-cols`, `--candidate-cols`, and `--output`. 
+
+- If no row or column ranges are supplied, it skips the candidate CSV header row, aligns the reference CSV to the first candidate timestamp in column 0, and compares all candidate data rows.
+- Omit `--output` to print the comparison summary only, or provide it to also save the comparison as JSON.
+
+```bash
+python -m scripts.compare_csv \
+  --reference data/reference/export.csv \
+  --candidate data/intermediate/sample_raw.csv
+```
 
 ```bash
 python -m scripts.compare_csv \
