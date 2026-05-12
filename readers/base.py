@@ -58,3 +58,13 @@ class BaseDeviceReader(ABC):
         verbose: bool = False,
     ) -> tuple[Path, Path]:
         """Read a device file and write Step 1A CSV and metadata outputs."""
+
+    def load_samples(
+        self,
+        input_path: Path,
+        mode: str = "full",
+        max_pages: int | None = None,
+        verbose: bool = False,
+    ) -> Any:
+        """Load a device file as standard sample-level data without writing files."""
+        raise NotImplementedError(f"{self.name} does not support in-memory loading.")

@@ -1,53 +1,52 @@
-# preprocess/filter.py
+from __future__ import annotations
 
-import numpy as np
+import pandas as pd
 from scipy.signal import butter, lfilter
 
-from models import RawTriAxialData
+
+AXIS_COLUMNS = ["Ax", "Ay", "Az"]
 
 
-def butter_bandpass(lo_cutoff: float, hi_cutoff: float, fs: float, order: int = 4):
-    nyq = 0.5 * fs
-    normal_lo_cutoff = lo_cutoff / nyq
-    normal_hi_cutoff = hi_cutoff / nyq
-    b, a = butter(
+def butter_bandpass(
+    low_cutoff_hz: float,
+    high_cutoff_hz: float,
+    sample_rate_hz: float,
+    order: int = 4,
+):
+    nyquist = 0.5 * sample_rate_hz
+    normal_low = low_cutoff_hz / nyquist
+    normal_high = high_cutoff_hz / nyquist
+
+    return butter(
         order,
-        [normal_lo_cutoff, normal_hi_cutoff],
+        [normal_low, normal_high],
         btype="bandpass",
         analog=False,
     )
-    return b, a
 
 
-def butter_bandpass_filter(
-    data,
-    lo_cutoff: float,
-    hi_cutoff: float,
-    fs: float,
+def apply_butterworth_bandpass(
+    data: pd.DataFrame,
+    sample_rate_hz: float,
+    low_cutoff_hz: float,
+    high_cutoff_hz: float,
     order: int = 4,
-):
-    b, a = butter_bandpass(lo_cutoff, hi_cutoff, fs, order=order)
-    y = lfilter(b, a, data)
-    return y
-
-
-def apply_bandpass_filter(
-    raw_data: RawTriAxialData,
-    low_cutoff: float,
-    high_cutoff: float,
-    sample_rate: float,
-    order: int = 4,
-) -> RawTriAxialData:
-    raw_data.validate()
-
-    filtered = raw_data.copy()
-    filtered.data["Ax"] = butter_bandpass_filter(
-        filtered.data["Ax"], low_cutoff, high_cutoff, sample_rate, order=order
+    columns: list[str] | None = None,
+) -> pd.DataFrame:
+    columns = AXIS_COLUMNS if columns is None else columns
+    filtered = data.copy()
+    b, a = butter_bandpass(
+        low_cutoff_hz=low_cutoff_hz,
+        high_cutoff_hz=high_cutoff_hz,
+        sample_rate_hz=sample_rate_hz,
+        order=order,
     )
-    filtered.data["Ay"] = butter_bandpass_filter(
-        filtered.data["Ay"], low_cutoff, high_cutoff, sample_rate, order=order
-    )
-    filtered.data["Az"] = butter_bandpass_filter(
-        filtered.data["Az"], low_cutoff, high_cutoff, sample_rate, order=order
-    )
+
+    for column in columns:
+        filtered[column] = lfilter(
+            b,
+            a,
+            pd.to_numeric(filtered[column], errors="coerce").to_numpy(dtype=float),
+        )
+
     return filtered

@@ -1,20 +1,16 @@
-# preprocess/svm.py
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 
-from models import RawTriAxialData
+
+SVM_SAMPLE_COLUMN = "_svm_sample"
 
 
-def compute_svm(raw_data: RawTriAxialData) -> pd.DataFrame:
-    raw_data.validate()
+def add_geneactive_svm(data: pd.DataFrame) -> pd.DataFrame:
+    data = data.copy()
 
-    data = raw_data.data.copy()
-    data["Time"] = pd.to_datetime(data["Time"])
-    data = data.set_index("Time")
+    vector_magnitude = np.sqrt(data["Ax"] ** 2 + data["Ay"] ** 2 + data["Az"] ** 2)
+    data[SVM_SAMPLE_COLUMN] = np.abs(vector_magnitude - 1.0)
 
-    data["SVM"] = np.maximum(
-        0,
-        np.sqrt(data["Ax"] ** 2 + data["Ay"] ** 2 + data["Az"] ** 2) - 1,
-    )
     return data

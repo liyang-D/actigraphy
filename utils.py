@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 
 
 NUMBER_PATTERN = re.compile(r"[-+]?\d+(?:\.\d+)?")
@@ -74,3 +75,38 @@ def parse_float(value: str | None) -> float | None:
     except ValueError:
         return None
 
+
+def parse_yes_no(value: str) -> bool:
+    normalized = value.strip().lower()
+
+    if normalized in {"yes", "true", "1", "on"}:
+        return True
+
+    if normalized in {"no", "false", "0", "off"}:
+        return False
+
+    raise ValueError("value must be one of yes/no, true/false, 1/0, or on/off.")
+
+
+def parse_timestamp(value: str) -> datetime:
+    value = value.strip()
+
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S:%f",
+        "%Y-%m-%d %H:%M:%S.%f",
+        "%Y-%m-%d %H:%M:%S",
+    ):
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+
+    raise ValueError(f"Unsupported timestamp format: {value}")
+
+
+def format_timestamp_millis(value) -> str:
+    return value.strftime("%Y-%m-%d %H:%M:%S:%f")[:-3]
+
+
+def normalize_epoch_label(epoch: str) -> str:
+    return epoch.strip().replace(" ", "")

@@ -85,6 +85,8 @@ The filter implementation is fixed internally. Users only control whether filter
 
 Sampling frequency should normally be read from the metadata produced by Step 1A.
 
+Default preprocessing settings are `epoch=60s`, `filter=yes`, Butterworth bandpass filtering with order 4, `low=0.5`, `high=20`, `mode=full-summary`, GENEActiv-style gravity-subtracted SVM, and epoch-end time labels.
+
 ### Output Modes
 
 #### `svm`
