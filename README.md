@@ -144,7 +144,6 @@ For the reader stage, the output CSV is written to the output directory using th
 
 ```bash
 python -m actigraphy.cli read \
-  --reader geneactive \
   --input data/raw/sample.bin \
   --output-dir data/intermediate \  # optional
   --mode full
@@ -172,7 +171,6 @@ The process and batch commands do not save intermediate files. Only `--summary-m
 
 ```bash
 python -m actigraphy.cli process \
-  --reader geneactive \
   --input data/raw/sample.bin \
   --output-dir data/processed \  # optional
   --epoch 60s \
@@ -194,6 +192,25 @@ python -m actigraphy.cli batch \
   --low 0.5 \
   --high 20 \
   --summary-mode full-summary
+```
+
+## CSV Comparison Utility
+
+The CSV comparison script compares values by row and column position, not by header name, so users can align different CSV layouts explicitly. It does not skip rows automatically; if a CSV has a header row, exclude it with the row range, for example `1:`.
+
+Ranges use Python-style indexing. For example, `1:4` selects columns 1, 2, and 3; `0:1000` selects the first 1000 rows; `:` selects all rows or columns.
+
+Optional argument: `--output`; omit it to print the comparison summary only, or provide it to also save the comparison as JSON.
+
+```bash
+python -m scripts.compare_csv \
+  --reference data/reference/export.csv \
+  --candidate data/intermediate/sample_raw.csv \
+  --reference-rows 1:1001 \
+  --candidate-rows 1:1001 \
+  --reference-cols 1:4 \
+  --candidate-cols 1:4 \
+  --output data/reports/sample_raw_compare.json  # optional
 ```
 
 ## License

@@ -20,7 +20,7 @@ def build_parser() -> argparse.ArgumentParser:
     read_parser.add_argument(
         "--reader",
         choices=available_readers(),
-        required=True,
+        default="geneactive",
         help="Device reader to use.",
     )
     read_parser.add_argument(
