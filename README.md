@@ -143,7 +143,7 @@ Output file and metadata file names do not need to be specified manually. If `--
 For the reader stage, the output CSV is written to the output directory using the input file’s base name with `_raw.csv` suffix. Each metadata file is written next to the output CSV using the same base name and the `_raw.metadata.json` suffix.
 
 ```bash
-python -m actigraphy.cli read \
+python -m cli read \
   --input data/raw/sample.bin \
   --output-dir data/intermediate \  # optional
   --mode full
@@ -154,7 +154,7 @@ python -m actigraphy.cli read \
 For the preprocessing stage, the output CSV is written to the output directory using the input file’s base name plus the epoch length with `.csv` suffix. Each metadata file is written next to the output CSV using the same base name and the `.metadata.json` suffix.
 
 ```bash
-python -m actigraphy.cli preprocess \
+python -m cli preprocess \
   --input data/intermediate/sample_raw.csv \
   --metadata data/intermediate/sample_raw.metadata.json \
   --output-dir data/processed \  # optional
@@ -170,7 +170,7 @@ python -m actigraphy.cli preprocess \
 The process and batch commands do not save intermediate files. Only `--summary-mode` needs to be specified, and the required reader mode is inferred automatically from the selected summary mode.
 
 ```bash
-python -m actigraphy.cli process \
+python -m cli process \
   --input data/raw/sample.bin \
   --output-dir data/processed \  # optional
   --epoch 60s \
@@ -183,7 +183,7 @@ python -m actigraphy.cli process \
 ### Batch processing
 
 ```bash
-python -m actigraphy.cli batch \
+python -m cli batch \
   --reader geneactive \
   --input-dir data/raw \
   --output-dir data/processed \  # optional
