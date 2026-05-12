@@ -169,6 +169,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output directory. Defaults to the input file directory.",
     )
     process_parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Optional output CSV path. Overrides --output-dir default naming.",
+    )
+    process_parser.add_argument(
+        "--metadata-output",
+        type=Path,
+        default=None,
+        help="Optional output metadata JSON path.",
+    )
+    process_parser.add_argument(
         "--epoch",
         default="60s",
         help="Epoch length, for example 60s.",
@@ -363,6 +375,8 @@ def run_process(args: argparse.Namespace) -> tuple[Path, Path]:
     return preprocess_raw_data_to_files(
         raw_data=raw_data,
         input_path=args.input,
+        output_csv_path=args.output,
+        output_metadata_path=args.metadata_output,
         output_dir=args.output_dir,
         config=config,
         verbose=args.verbose,

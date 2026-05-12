@@ -148,6 +148,8 @@ For the reader stage, the output CSV is written to the output directory using th
 python -m cli read \
   --input data/raw/sample.bin \
   --output-dir data/intermediate \  # optional
+  --output data/intermediate/sample_raw.csv \  # optional
+  --metadata data/intermediate/sample_raw.metadata.json \  # optional
   --mode full
 ```
 
@@ -160,6 +162,8 @@ python -m cli preprocess \
   --input data/intermediate/sample_raw.csv \
   --metadata data/intermediate/sample_raw.metadata.json \
   --output-dir data/processed \  # optional
+  --output data/processed/sample_60s.csv \  # optional
+  --metadata-output data/processed/sample_60s.metadata.json \  # optional
   --epoch 60s \
   --filter yes \
   --low 0.5 \
@@ -175,6 +179,8 @@ The process and batch commands do not save intermediate files. Only `--summary-m
 python -m cli process \
   --input data/raw/sample.bin \
   --output-dir data/processed \  # optional
+  --output data/processed/sample_60s.csv \  # optional
+  --metadata-output data/processed/sample_60s.metadata.json \  # optional
   --epoch 60s \
   --filter yes \
   --low 0.5 \
