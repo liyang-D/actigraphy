@@ -302,6 +302,7 @@ def finalize_stream_summary(
     reference_start_row: int,
     candidate_start_row: int,
     start_time: str,
+    column_names: list[str],
 ) -> dict[str, Any]:
     overall = finalize_running_metric(overall_metric)
 
@@ -312,6 +313,7 @@ def finalize_stream_summary(
     for column_index, metric in enumerate(per_column_metrics):
         column_summary = finalize_running_metric(metric)
         column_summary["column_index"] = column_index
+        column_summary["column_name"] = column_names[column_index]
         per_column.append(column_summary)
 
     return {
@@ -322,6 +324,7 @@ def finalize_stream_summary(
             "reference_start_row": reference_start_row,
             "candidate_start_row": candidate_start_row,
         },
+        "columns": column_names,
         "shape": {
             "rows": rows,
             "columns": columns,
@@ -337,7 +340,7 @@ def compare_by_candidate_timestamp(
 ) -> dict[str, Any]:
     with candidate_path.open("r", encoding="utf-8-sig", newline="") as candidate_file:
         candidate_reader = csv.reader(candidate_file)
-        next(candidate_reader, None)
+        candidate_header = next(candidate_reader, None)
 
         candidate_first_row = next(
             (row for row in candidate_reader if row),
@@ -349,6 +352,20 @@ def compare_by_candidate_timestamp(
 
         start_time = clean_cell(candidate_first_row[0])
         column_count = len(candidate_first_row)
+        if candidate_header is None:
+            column_names = [f"column_{index}" for index in range(column_count)]
+        else:
+            column_names = [
+                clean_cell(value) if clean_cell(value) else f"column_{index}"
+                for index, value in enumerate(candidate_header[:column_count])
+            ]
+
+            if len(column_names) < column_count:
+                column_names.extend(
+                    f"column_{index}"
+                    for index in range(len(column_names), column_count)
+                )
+
         per_column_metrics = [init_running_metric() for _ in range(column_count)]
         overall_metric = init_running_metric()
 
@@ -409,6 +426,7 @@ def compare_by_candidate_timestamp(
         reference_start_row=reference_start_row,
         candidate_start_row=1,
         start_time=start_time,
+        column_names=column_names,
     )
 
 
@@ -444,8 +462,9 @@ def print_summary(summary: dict[str, Any]) -> None:
 
     print("\nPer column")
     for column in summary["per_column"]:
+        column_label = column.get("column_name", f"Column {column['column_index']}")
         print(
-            f"Column {column['column_index']}: "
+            f"{column_label}: "
             f"count={column['count']}, "
             f"MAE={column['mean_absolute_error']}, "
             f"RMSE={column['root_mean_squared_error']}, "
