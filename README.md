@@ -220,14 +220,14 @@ low cutoff = 0.5 Hz
 high cutoff = 20 Hz
 summary mode = full-summary
 SVM method = GENEActiv-style abs(vector_magnitude - 1)
-time label = epoch end
+time label = epoch start
 ```
 
 Filtering is applied only to `Ax`, `Ay`, and `Az`. `Lux`, `Button`, and `Temperature` are not filtered.
 
 ## CSV Comparison Utility
 
-Use this utility to compare numeric values in two CSV files. If no row or column ranges are supplied, it skips the candidate header row, aligns the reference CSV to the first candidate timestamp, and compares all candidate rows. It also checks column counts and timestamp intervals, which helps catch accidental raw-vs-epoch comparisons.
+Use this utility to compare numeric values in two CSV files. If no row or column ranges are supplied, it skips the candidate header row, aligns the reference CSV to the first candidate timestamp, and compares the overlapping aligned rows. It also checks column counts and timestamp intervals, which helps catch accidental raw-vs-epoch comparisons.
 
 Automatic comparison:
 
@@ -261,6 +261,35 @@ python -m scripts.compare_comparison_json \
   --left-label no_filter \
   --right-label filter
 ```
+
+## Sleep Report PDF
+
+The report script is separate from the processing pipeline. It reads a standard CSV and renders a simple `Actigraphy Sleep Report` PDF.
+
+Quick start:
+
+```bash
+python -m scripts.generate_sleep_report \
+  --input data/processed/sample_60s.csv
+```
+
+The report plots `SVM_sum` as activity. If light columns are available, it overlays light on a `log10(lux + 1)` scale. The default activity y-axis maximum is the 99th percentile of `SVM_sum` across the full file.
+
+Customised command:
+
+```bash
+python -m scripts.generate_sleep_report \
+  --input data/processed/sample_60s.csv \
+  --output data/reports/sample_sleep_report.pdf \
+  --report-date "28 Aug 2025" \
+  --day-start-hour 15 \
+  --days-per-page 4 \
+  --activity-scale 100 \
+  --lux-log-scale-max 5 \
+  --verbose
+```
+
+Useful optional parameters: `--output`, `--title`, `--report-date`, `--day-start-hour`, `--days-per-page`, `--activity-scale`, `--lux-log-scale-max`, and `--verbose`. Use `--activity-scale` to set a fixed activity axis maximum, and `--lux-log-scale-max` to adjust the light axis maximum.
 
 ## License
 

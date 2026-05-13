@@ -385,6 +385,7 @@ def finalize_stream_summary(
     candidate_start_row: int,
     start_time: str,
     column_names: list[str],
+    truncation_reason: str | None = None,
 ) -> dict[str, Any]:
     overall = finalize_running_metric(overall_metric)
 
@@ -398,14 +399,19 @@ def finalize_stream_summary(
         column_summary["column_name"] = column_names[column_index]
         per_column.append(column_summary)
 
+    alignment = {
+        "mode": "candidate_timestamp",
+        "time_column_index": 0,
+        "start_time": start_time,
+        "reference_start_row": reference_start_row,
+        "candidate_start_row": candidate_start_row,
+        "truncated": truncation_reason is not None,
+    }
+    if truncation_reason is not None:
+        alignment["truncation_reason"] = truncation_reason
+
     return {
-        "alignment": {
-            "mode": "candidate_timestamp",
-            "time_column_index": 0,
-            "start_time": start_time,
-            "reference_start_row": reference_start_row,
-            "candidate_start_row": candidate_start_row,
-        },
+        "alignment": alignment,
         "columns": column_names,
         "shape": {
             "rows": rows,
@@ -500,6 +506,7 @@ def compare_by_candidate_timestamp(
 
             rows_compared = 0
             next_reference_row_index = reference_start_row + 1
+            truncation_reason = None
             compare_row_values(
                 reference_row=reference_first_row,
                 candidate_row=candidate_first_row,
@@ -527,10 +534,11 @@ def compare_by_candidate_timestamp(
 
                 try:
                     reference_row = next(reference_reader)
-                except StopIteration as exc:
-                    raise ValueError(
+                except StopIteration:
+                    truncation_reason = (
                         "Reference CSV ended before all candidate rows were compared."
-                    ) from exc
+                    )
+                    break
 
                 reference_row_index = next_reference_row_index
                 next_reference_row_index += 1
@@ -578,6 +586,7 @@ def compare_by_candidate_timestamp(
         candidate_start_row=candidate_first_row_index,
         start_time=start_time,
         column_names=column_names,
+        truncation_reason=truncation_reason,
     )
 
 
@@ -598,6 +607,8 @@ def print_summary(summary: dict[str, Any]) -> None:
         print(f"Start time: {alignment['start_time']}")
         print(f"Reference start row: {alignment['reference_start_row']}")
         print(f"Candidate start row: {alignment['candidate_start_row']}")
+        if alignment.get("truncated"):
+            print(f"Truncated: {alignment['truncation_reason']}")
 
     print(f"Rows: {summary['shape']['rows']}")
     print(f"Columns: {summary['shape']['columns']}")
@@ -629,8 +640,8 @@ def build_parser() -> argparse.ArgumentParser:
             "Compare selected numeric ranges from two CSV files by row/column "
             "position. If no ranges are supplied, the candidate header row is "
             "skipped and the reference is aligned by the first candidate "
-            "timestamp. Automatic alignment also validates column counts and "
-            "adjacent timestamp intervals."
+            "timestamp. Automatic alignment compares overlapping aligned rows "
+            "and also validates column counts and adjacent timestamp intervals."
         )
     )
     parser.add_argument(

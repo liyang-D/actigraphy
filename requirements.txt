@@ -3,5 +3,5 @@ numpy
 pandas
 scipy
 
-# Optional plotting helper used by preprocess/plot.py.
+# PDF report generation.
 matplotlib

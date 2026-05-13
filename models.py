@@ -9,7 +9,7 @@ import pandas as pd
 RAW_MOTION_COLUMNS = ["Time", "Ax", "Ay", "Az"]
 RAW_FULL_COLUMNS = ["Time", "Ax", "Ay", "Az", "Lux", "Button", "Temperature"]
 LUX_COLUMN = "Lux"
-LUX_DTYPE = "uint16"
+LUX_DTYPE = "uint32"
 BUTTON_COLUMN = "Button"
 BUTTON_DTYPE = "uint8"
 TEMPERATURE_COLUMN = "Temperature"
@@ -78,7 +78,7 @@ def coerce_lux_column(data: pd.DataFrame) -> pd.DataFrame:
     if lux.isna().any():
         raise ValueError("Lux column must contain numeric values.")
 
-    data[LUX_COLUMN] = lux.round().astype(LUX_DTYPE)
+    data[LUX_COLUMN] = lux.astype(LUX_DTYPE)
     return data
 
 
@@ -181,7 +181,7 @@ class PreprocessConfig:
     high_cutoff_hz: float = 20.0
     summary_mode: str = "full-summary"
     svm_method: str = "geneactive_abs"
-    time_label: str = "epoch_end"
+    time_label: str = "epoch_start"
     standard_deviation_ddof: int = 0
 
     def validate(self, sample_rate_hz: float) -> None:
@@ -222,8 +222,8 @@ class PreprocessConfig:
         if self.svm_method != "geneactive_abs":
             raise ValueError("svm_method must be 'geneactive_abs'.")
 
-        if self.time_label != "epoch_end":
-            raise ValueError("time_label must be 'epoch_end'.")
+        if self.time_label != "epoch_start":
+            raise ValueError("time_label must be 'epoch_start'.")
 
         if self.standard_deviation_ddof < 0:
             raise ValueError("standard_deviation_ddof must be non-negative.")

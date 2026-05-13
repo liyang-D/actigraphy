@@ -7,13 +7,12 @@ from preprocess.svm import SVM_SAMPLE_COLUMN
 from utils import format_timestamp_millis
 
 
-EPOCH_END_COLUMN = "_epoch_end"
+EPOCH_TIME_COLUMN = "_epoch_time"
 
 
-def add_epoch_end_time(data: pd.DataFrame, epoch: str) -> pd.DataFrame:
+def add_epoch_time(data: pd.DataFrame, epoch: str) -> pd.DataFrame:
     data = data.copy()
-    epoch_offset = pd.to_timedelta(epoch)
-    data[EPOCH_END_COLUMN] = data["Time"].dt.floor(epoch) + epoch_offset
+    data[EPOCH_TIME_COLUMN] = data["Time"].dt.floor(epoch)
     return data
 
 
@@ -26,8 +25,8 @@ def aggregate_epochs(
     if data.empty:
         raise ValueError("Cannot aggregate an empty input CSV.")
 
-    data = add_epoch_end_time(data, epoch=epoch)
-    grouped = data.groupby(EPOCH_END_COLUMN, sort=True)
+    data = add_epoch_time(data, epoch=epoch)
+    grouped = data.groupby(EPOCH_TIME_COLUMN, sort=True)
 
     output = pd.DataFrame(index=grouped.size().index)
     output["Time"] = [

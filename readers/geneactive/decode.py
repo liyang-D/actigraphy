@@ -30,14 +30,25 @@ def decode_light(
     lux_factor: float | None,
     volts_factor: float | None,
 ) -> int:
-    light_raw = raw_light_button >> 2
+    light_output = raw_light_button >> 2
 
     if lux_factor is None or volts_factor is None or volts_factor == 0:
-        lux = float(light_raw)
+        lux = float(light_output)
     else:
-        lux = light_raw * lux_factor / volts_factor
+        factor = lux_factor / volts_factor
+        # GENEActiv 1.2 compresses the light sensor's wider range into 10 bits.
+        if light_output < 256:
+            lux = light_output * factor
+        elif light_output < 512:
+            lux = (light_output - 128) * 2 * factor
+        elif light_output < 768:
+            lux = (light_output - 320) * 4 * factor
+        elif light_output < 1024:
+            lux = (light_output - 656) * 16 * factor
+        else:
+            lux = 5888 * factor
 
-    return int(round(lux))
+    return int(lux)
 
 
 def decode_button(raw_light_button: int) -> int:
