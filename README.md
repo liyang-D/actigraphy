@@ -20,6 +20,8 @@ Device file
   -> epoch-level CSV + metadata
 ```
 
+The CSV contains only the processed data values. Metadata such as device / experiment / participant information and preprocessing parameters is stored separately in a paired metadata file. This keeps the CSV lightweight and makes downstream data loading and anonymisation easier.
+
 Metadata is always written automatically next to the CSV:
 
 ```text
@@ -33,7 +35,8 @@ For most use cases, run the full pipeline directly:
 
 ```bash
 python -m cli process \
-  --input data/raw/sample.bin
+  --input data/raw/sample.bin \
+  --verbose
 ```
 
 This uses the default settings:
@@ -63,7 +66,8 @@ For a folder of `.bin` files:
 
 ```bash
 python -m cli batch \
-  --input-dir data/raw
+  --input-dir data/raw \
+  --verbose
 ```
 
 Add `--verbose` when processing large files so progress is printed while pages are decoded and epochs are generated.
@@ -122,14 +126,7 @@ If `--output` is used, it must end with `.csv`. The metadata file name is genera
 
 ## Step 1B: Preprocessing
 
-Step 1B converts sample-level CSV data into epoch-level summaries.
-
-It reads the paired metadata file automatically. For example:
-
-```text
-sample_raw.csv
-sample_raw.metadata.json
-```
+Step 1B converts sample-level CSV data into epoch-level summaries. It reads the paired metadata file automatically.
 
 Input columns can be motion-only:
 
@@ -195,9 +192,7 @@ SVM method = GENEActiv-style abs(vector_magnitude - 1)
 time label = epoch start
 ```
 
-Filtering is applied only to `Ax`, `Ay`, and `Az`.
-
-`Lux`, `Button`, and `Temperature` are not filtered.
+Filtering is applied only to `Ax`, `Ay`, and `Az`. `Lux`, `Button`, and `Temperature` are not filtered.
 
 ## Full Pipeline
 
@@ -272,9 +267,7 @@ Useful optional parameters: `--reader`, `--output-dir`, `--epoch`, `--filter`, `
 
 ## Sleep Report PDF
 
-The report script is separate from the processing pipeline.
-
-It reads a standard CSV and renders a simple `Actigraphy Sleep Report` PDF.
+The report script is separate from the processing pipeline. It reads a standard CSV and renders a simple `Actigraphy Sleep Report` PDF.
 
 Quick start:
 
@@ -283,11 +276,7 @@ python -m scripts.generate_sleep_report \
   --input data/processed/sample_60s.csv
 ```
 
-The report plots `SVM_sum` as activity.
-
-If light columns are available, it overlays light on a `log10(lux + 1)` scale.
-
-The default activity y-axis maximum is the 99th percentile of `SVM_sum` across the full file.
+The report plots `SVM_sum` as activity. If light columns are available, it overlays light on a `log10(lux + 1)` scale. The default activity y-axis maximum is the 99th percentile of `SVM_sum` across the full file.
 
 Customised command:
 
@@ -347,9 +336,7 @@ Optional range parameters:
 --candidate-cols
 ```
 
-Omit `--output` to print only.
-
-Provide it to also save the comparison JSON.
+Omit `--output` to print only. Provide it to also save the comparison JSON.
 
 To compare two saved comparison JSON files, for example when checking whether filtered or unfiltered output has smaller errors:
 
@@ -371,11 +358,7 @@ This project references and builds upon the following resources:
 
 ## Feedback
 
-If you encounter any issues or have suggestions for improvements, feel free to email:
-
-```text
-leon.dou@kmms.ac.uk
-```
+If you encounter any issues or have suggestions for improvements, feel free to email [leon.dou@kmms.ac.uk](mailto:leon.dou@kmms.ac.uk).
 
 ## License
 
