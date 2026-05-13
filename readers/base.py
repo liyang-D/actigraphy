@@ -59,6 +59,7 @@ class BaseDeviceReader(ABC):
         output_dir: Path | None = None,
         mode: str = "full",
         max_pages: int | None = None,
+        workers: int = 1,
         verbose: bool = False,
     ) -> tuple[Path, Path]:
         """Read a device file and write Step 1A CSV and metadata outputs."""
@@ -68,6 +69,7 @@ class BaseDeviceReader(ABC):
         input_path: Path,
         mode: str = "full",
         max_pages: int | None = None,
+        workers: int = 1,
         verbose: bool = False,
     ) -> Any:
         """Load a device file as standard sample-level data without writing files."""

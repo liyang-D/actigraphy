@@ -86,11 +86,11 @@ def format_geneactive_time(dt) -> str:
     return dt.strftime("%Y-%m-%d %H:%M:%S:%f")[:-3]
 
 
-def decode_page(
+def decode_page_columns(
     page: GeneActivePage,
     decoder_context: dict[str, Any],
     mode: str = "full",
-) -> Iterator[dict[str, Any]]:
+) -> dict[str, list[Any]]:
     if mode not in {"motion", "full"}:
         raise ValueError("mode must be either 'motion' or 'full'.")
 
@@ -109,39 +109,83 @@ def decode_page(
             f"{len(page.hex_data)} < {expected_hex_length}."
         )
 
-    if len(page.hex_data) > expected_hex_length:
-        hex_data = page.hex_data[:expected_hex_length]
-    else:
-        hex_data = page.hex_data
+    hex_data = page.hex_data[:expected_hex_length]
+
+    x_gain = require_number(calibration.get("x_gain"), "x_gain")
+    x_offset = require_number(calibration.get("x_offset"), "x_offset")
+    y_gain = require_number(calibration.get("y_gain"), "y_gain")
+    y_offset = require_number(calibration.get("y_offset"), "y_offset")
+    z_gain = require_number(calibration.get("z_gain"), "z_gain")
+    z_offset = require_number(calibration.get("z_offset"), "z_offset")
+
+    columns: dict[str, list[Any]] = {
+        "Time": [],
+        "Ax": [],
+        "Ay": [],
+        "Az": [],
+    }
+
+    if mode == "full":
+        lux_factor = calibration.get("lux")
+        volts_factor = calibration.get("volts")
+        lux_factor = float(lux_factor) if lux_factor is not None else None
+        volts_factor = float(volts_factor) if volts_factor is not None else None
+
+        columns["Lux"] = []
+        columns["Button"] = []
+        columns["Temperature"] = []
 
     dt_seconds = 1.0 / sample_rate
 
     for sample_index in range(samples_per_page):
         start = sample_index * SAMPLE_HEX_LENGTH
-        end = start + SAMPLE_HEX_LENGTH
-        sample_hex = hex_data[start:end]
+        sample_hex = hex_data[start : start + SAMPLE_HEX_LENGTH]
 
-        decoded = decode_sample(sample_hex, calibration)
-
-        sample_time = page.header.page_time + timedelta(seconds=sample_index * dt_seconds)
-
-        row = {
-            "Time": format_geneactive_time(sample_time),
-            "Ax": decoded["Ax"],
-            "Ay": decoded["Ay"],
-            "Az": decoded["Az"],
-        }
+        sample_time = page.header.page_time + timedelta(
+            seconds=sample_index * dt_seconds
+        )
+        columns["Time"].append(format_geneactive_time(sample_time))
+        columns["Ax"].append(
+            calibrate_axis(signed12(sample_hex[0:3]), x_gain, x_offset)
+        )
+        columns["Ay"].append(
+            calibrate_axis(signed12(sample_hex[3:6]), y_gain, y_offset)
+        )
+        columns["Az"].append(
+            calibrate_axis(signed12(sample_hex[6:9]), z_gain, z_offset)
+        )
 
         if mode == "full":
-            row.update(
-                {
-                    "Lux": decoded["Lux"],
-                    "Button": decoded["Button"],
-                    "Temperature": page.header.temperature,
-                }
+            light_button_raw = int(sample_hex[9:12], 16)
+            columns["Lux"].append(
+                decode_light(light_button_raw, lux_factor, volts_factor)
             )
+            columns["Button"].append(decode_button(light_button_raw))
+            columns["Temperature"].append(page.header.temperature)
 
-        yield row
+    return columns
+
+
+def decode_page(
+    page: GeneActivePage,
+    decoder_context: dict[str, Any],
+    mode: str = "full",
+) -> Iterator[dict[str, Any]]:
+    columns = decode_page_columns(
+        page=page,
+        decoder_context=decoder_context,
+        mode=mode,
+    )
+    output_columns = ["Time", "Ax", "Ay", "Az"]
+    if mode == "full":
+        output_columns.extend(["Lux", "Button", "Temperature"])
+
+    row_count = len(columns["Time"])
+    for row_index in range(row_count):
+        yield {
+            column: columns[column][row_index]
+            for column in output_columns
+        }
 
 
 def decode_pages(

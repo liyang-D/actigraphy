@@ -57,6 +57,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum number of pages to process. Defaults to all pages.",
     )
     read_parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Reader decode worker processes. Defaults to 1.",
+    )
+    read_parser.add_argument(
         "--verbose",
         action="store_true",
         help="Print progress messages.",
@@ -189,6 +195,12 @@ def build_parser() -> argparse.ArgumentParser:
         help=argparse.SUPPRESS,
     )
     process_parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Reader decode worker processes. Defaults to 1.",
+    )
+    process_parser.add_argument(
         "--verbose",
         action="store_true",
         help="Print progress messages.",
@@ -252,6 +264,12 @@ def build_parser() -> argparse.ArgumentParser:
         help=argparse.SUPPRESS,
     )
     batch_parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Reader decode worker processes per input file. Defaults to 1.",
+    )
+    batch_parser.add_argument(
         "--verbose",
         action="store_true",
         help="Print progress messages.",
@@ -267,6 +285,16 @@ def optional_csv_output_path(path: Path | None) -> Path | None:
     return ensure_csv_path(path, "Output CSV path")
 
 
+def normalized_workers(workers: int | None) -> int:
+    if workers is None:
+        return 1
+
+    if workers < 1:
+        raise ValueError("--workers must be greater than or equal to 1.")
+
+    return workers
+
+
 def run_read(args: argparse.Namespace) -> tuple[Path, Path]:
     max_pages = None if args.max_pages in (None, 0) else args.max_pages
 
@@ -280,6 +308,7 @@ def run_read(args: argparse.Namespace) -> tuple[Path, Path]:
         output_dir=args.output_dir,
         mode=args.mode,
         max_pages=max_pages,
+        workers=normalized_workers(args.workers),
         verbose=args.verbose,
     )
 
@@ -347,6 +376,7 @@ def run_process(args: argparse.Namespace) -> tuple[Path, Path]:
         input_path=args.input,
         mode=reader_mode,
         max_pages=normalized_max_pages(args.max_pages),
+        workers=normalized_workers(args.workers),
         verbose=args.verbose,
     )
 
@@ -410,6 +440,7 @@ def run_batch(args: argparse.Namespace) -> list[tuple[Path, Path]]:
             summary_mode=args.summary_mode,
             output=None,
             max_pages=args.max_pages,
+            workers=args.workers,
             verbose=args.verbose,
         )
         output = run_process(command_args)

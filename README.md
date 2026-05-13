@@ -150,6 +150,7 @@ python -m cli read \
   --output-dir data/intermediate \  # optional
   --output data/intermediate/sample_raw.csv \  # optional
   --mode full \
+  --workers 1 \  # optional; increase for parallel page-chunk decoding
   --verbose  # optional, recommended for progress
 ```
 
@@ -184,6 +185,7 @@ python -m cli process \
   --low 0.5 \
   --high 20 \
   --summary-mode full-summary \
+  --workers 1 \  # optional; increase for parallel page-chunk decoding
   --verbose  # optional, recommended for progress
 ```
 
@@ -199,6 +201,7 @@ python -m cli batch \
   --low 0.5 \
   --high 20 \
   --summary-mode full-summary \
+  --workers 1 \  # optional; increase for parallel page-chunk decoding
   --verbose  # optional, recommended for progress
 ```
 
