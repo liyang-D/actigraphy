@@ -41,6 +41,13 @@ python -m cli process \
 
 This uses the default settings: GENEActiv reader, 60-second epochs, filtering enabled, full summary output, and one reader worker.
 
+To generate a PDF report from the processed CSV:
+
+```bash
+python -m scripts.generate_sleep_report \
+  --input data/processed/sample_60s.csv
+```
+
 For a folder of `.bin` files:
 
 ```bash
