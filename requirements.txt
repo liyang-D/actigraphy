@@ -1,0 +1,7 @@
+# Core data processing dependencies.
+numpy
+pandas
+scipy
+
+# Optional plotting helper used by preprocess/plot.py.
+matplotlib

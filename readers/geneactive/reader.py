@@ -79,13 +79,6 @@ def page_total_to_process(
     return max_pages
 
 
-def format_page_progress(page_index: int, total_pages: int | None) -> str:
-    if total_pages is None:
-        return f"{page_index}/?"
-
-    return f"{page_index}/{total_pages}"
-
-
 def format_page_chunk_progress(
     start_page: int,
     end_page: int,

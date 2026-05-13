@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..base import save_metadata as save_metadata
 from .models import GeneActiveHeader
 from utils import (
     parse_first_float,

@@ -1,239 +1,258 @@
 # Actigraphy Processing Pipeline
 
-This repository provides a scriptable pipeline for converting device-specific actigraphy files into standardised activity summaries for research analysis.
+This repository converts device actigraphy files into CSV outputs for research analysis.
+It currently supports GENEActiv `.bin` files and is structured so other device readers can be added later.
 
-The codebase is designed to support multiple devices through interchangeable readers. The current development focus is the `geneactive` reader.
+## Installation
+
+```bash
+python -m pip install -r requirements.txt
+```
 
 ## Workflow
 
 ```text
 Device file
   -> Step 1A: Reader
-  -> Standard sample-level data
+  -> sample-level CSV + metadata
   -> Step 1B: Preprocessing
-  -> Epoch-level summary CSV + metadata
+  -> epoch-level CSV + metadata
 ```
+
+Metadata is always written automatically next to the CSV:
+
+```text
+sample.csv
+sample.metadata.json
+```
+
+If `--output` is used, it must end with `.csv`. The metadata file name is generated automatically from that CSV path.
+
+## Quick Start
+
+For most use cases, run the full pipeline directly:
+
+```bash
+python -m cli process \
+  --input data/raw/sample.bin \
+  --output-dir data/processed \
+  --verbose
+```
+
+This uses the default settings: GENEActiv reader, 60-second epochs, filtering enabled, full summary output, and one reader worker.
+
+For a folder of `.bin` files:
+
+```bash
+python -m cli batch \
+  --input-dir data/raw \
+  --output-dir data/processed \
+  --verbose
+```
+
+Add `--verbose` when processing large files so progress is printed while pages are decoded and epochs are generated.
 
 ## Step 1A: Reader
 
-The reader converts a device-specific file (e.g. `GENEActiv .bin`) into a standard sample-level table.
+Step 1A converts a device file into a standard sample-level CSV.
 
-### Input
+Input:
 
 ```text
 GENEActiv .bin file
 ```
 
-### Output modes
-
-#### `motion`
+Output modes:
 
 ```text
+motion:
 Time, Ax, Ay, Az
-```
 
-Use this when only motion/activity analysis is needed.
-
-#### `full`
-
-```text
+full:
 Time, Ax, Ay, Az, Lux, Button, Temperature
 ```
 
-Use this when a fuller GENEActiv-style sample-level export is required.
-
-### Metadata
-
-The reader also writes a sidecar metadata file:
-
-```text
-sample_raw.csv
-sample_raw.metadata.json
-```
-
-The metadata contains available source information, such as device, recording, sampling frequency, and reader settings. It is stored as a separate file with the same base name to keep the CSV easy to read and to support anonymisation workflows.
-
-## Step 1B: Preprocessing
-
-The preprocessing stage takes standard sample-level data and produces epoch-level summaries.
-
-### Input
-
-Motion-only input:
-
-```text
-Time, Ax, Ay, Az
-```
-
-Full input:
-
-```text
-Time, Ax, Ay, Az, Lux, Button, Temperature
-```
-
-### Parameters
-
-```text
-epoch length
-filter on/off
-low cutoff frequency
-high cutoff frequency
-summary mode
-```
-
-The filter implementation is fixed internally. Users only control whether filtering is applied and the cutoff frequencies.
-
-Sampling frequency should normally be read from the metadata produced by Step 1A.
-
-Default preprocessing settings are `epoch=60s`, `filter=yes`, Butterworth bandpass filtering with order 4, `low=0.5`, `high=20`, `mode=full-summary`, GENEActiv-style gravity-subtracted SVM, and epoch-end time labels.
-
-### Output Modes
-
-#### `svm`
-
-Minimal activity output:
-
-```text
-Time, SVM_sum
-```
-
-#### `motion-summary`
-
-Motion-only epoch summary:
-
-```text
-Time, Ax_mean, Ay_mean, Az_mean, SVM_sum, Ax_sd, Ay_sd, Az_sd
-```
-
-#### `full-summary`
-
-GENEActiv-style epoch summary where full input data are available:
-
-```text
-Time,
-Ax_mean,
-Ay_mean,
-Az_mean,
-Lux_mean,
-Button_sum,
-Temperature_mean,
-SVM_sum,
-Ax_sd,
-Ay_sd,
-Az_sd,
-Lux_peak
-```
-
-### Metadata
-
-The preprocessing stage also writes a sidecar metadata file:
-
-```text
-sample_60s.csv
-sample_60s.metadata.json
-```
-
-The metadata extends the raw metadata from Step 1A with preprocessing parameters, such as epoch length, filter settings, cutoff frequencies, and summary mode. It is stored as a separate file with the same base name to keep the CSV easy to read and to support anonymisation workflows.
-
-
-## Command Line Interface
-
-Output file and metadata file names do not need to be specified manually. If `--output-dir` is not specified, outputs are written to the same directory as the input file. If `--output` is specified, it must end with `.csv`; the metadata path is always generated from the CSV path in the same directory using `.metadata.json`.
-
-### Step 1A only
-
-For the reader stage, the output CSV is written to the output directory using the input file’s base name with `_raw.csv` suffix. Each metadata file is written next to the output CSV using the same base name and the `_raw.metadata.json` suffix.
+Simple command:
 
 ```bash
 python -m cli read \
   --input data/raw/sample.bin \
-  --output-dir data/intermediate \  # optional
-  --output data/intermediate/sample_raw.csv \  # optional
-  --mode full \
-  --workers 1 \  # optional; increase for parallel page-chunk decoding
-  --verbose  # optional, recommended for progress
+  --verbose
 ```
 
-### Step 1B only
+Customised command:
 
-For the preprocessing stage, the input metadata is read automatically from the input CSV path, for example `sample_raw.csv` uses `sample_raw.metadata.json`. The output CSV is written to the output directory using the input file’s base name plus the epoch length with `.csv` suffix. Each output metadata file is written next to the output CSV using the same base name and the `.metadata.json` suffix.
+```bash
+python -m cli read \
+  --input data/raw/sample.bin \
+  --output data/intermediate/sample_raw.csv \
+  --mode full \
+  --workers 2 \
+  --verbose
+```
+
+Useful optional parameters: `--output-dir`, `--output`, `--mode`, `--workers`, and `--verbose`.
+
+## Step 1B: Preprocessing
+
+Step 1B converts sample-level CSV data into epoch-level summaries. It reads the paired metadata file automatically, for example `sample_raw.csv` uses `sample_raw.metadata.json`.
+
+Input columns can be motion-only:
+
+```text
+Time, Ax, Ay, Az
+```
+
+or full:
+
+```text
+Time, Ax, Ay, Az, Lux, Button, Temperature
+```
+
+Output modes:
+
+```text
+svm:
+Time, SVM_sum
+
+motion-summary:
+Time, Ax_mean, Ay_mean, Az_mean, SVM_sum, Ax_sd, Ay_sd, Az_sd
+
+full-summary:
+Time, Ax_mean, Ay_mean, Az_mean, Lux_mean, Button_sum,
+Temperature_mean, SVM_sum, Ax_sd, Ay_sd, Az_sd, Lux_peak
+```
+
+Simple command:
 
 ```bash
 python -m cli preprocess \
   --input data/intermediate/sample_raw.csv \
-  --output-dir data/processed \  # optional
-  --output data/processed/sample_60s.csv \  # optional
+  --verbose
+```
+
+Customised command:
+
+```bash
+python -m cli preprocess \
+  --input data/intermediate/sample_raw.csv \
+  --output data/processed/sample_60s.csv \
   --epoch 60s \
   --filter yes \
   --low 0.5 \
   --high 20 \
   --mode full-summary \
-  --verbose  # optional, recommended for progress
+  --verbose
 ```
 
-### Full pipeline
+Useful optional parameters: `--output-dir`, `--output`, `--epoch`, `--filter`, `--low`, `--high`, `--mode`, `--sample-rate`, and `--verbose`.
 
-The process and batch commands do not save intermediate files. Only `--summary-mode` needs to be specified, and the required reader mode is inferred automatically from the selected summary mode.
+## Full Pipeline
+
+The full pipeline runs Step 1A and Step 1B without saving the intermediate raw CSV. The reader mode is inferred from `--summary-mode`: `full-summary` reads all columns, while `svm` and `motion-summary` read motion columns only.
+
+Simple command:
 
 ```bash
 python -m cli process \
   --input data/raw/sample.bin \
-  --output-dir data/processed \  # optional
-  --output data/processed/sample_60s.csv \  # optional
+  --verbose
+```
+
+Customised command:
+
+```bash
+python -m cli process \
+  --input data/raw/sample.bin \
+  --output data/processed/sample_60s.csv \
   --epoch 60s \
   --filter yes \
   --low 0.5 \
   --high 20 \
   --summary-mode full-summary \
-  --workers 1 \  # optional; increase for parallel page-chunk decoding
-  --verbose  # optional, recommended for progress
+  --workers 2 \
+  --verbose
 ```
 
-### Batch processing
+Useful optional parameters: `--reader`, `--output-dir`, `--output`, `--epoch`, `--filter`, `--low`, `--high`, `--summary-mode`, `--workers`, and `--verbose`.
+
+## Batch Processing
+
+Batch mode runs the full pipeline for every supported file in a directory.
+
+Simple command:
+
+```bash
+python -m cli batch \
+  --input-dir data/raw \
+  --output-dir data/processed \
+  --verbose
+```
+
+Customised command:
 
 ```bash
 python -m cli batch \
   --reader geneactive \
   --input-dir data/raw \
-  --output-dir data/processed \  # optional
+  --output-dir data/processed \
   --epoch 60s \
   --filter yes \
   --low 0.5 \
   --high 20 \
   --summary-mode full-summary \
-  --workers 1 \  # optional; increase for parallel page-chunk decoding
-  --verbose  # optional, recommended for progress
+  --workers 2 \
+  --verbose
 ```
+
+Useful optional parameters: `--reader`, `--output-dir`, `--epoch`, `--filter`, `--low`, `--high`, `--summary-mode`, `--workers`, and `--verbose`.
+
+## Preprocessing Defaults
+
+The default Step 1B settings are:
+
+```text
+epoch = 60s
+filter = yes
+filter type = Butterworth bandpass
+filter order = 4
+low cutoff = 0.5 Hz
+high cutoff = 20 Hz
+summary mode = full-summary
+SVM method = GENEActiv-style abs(vector_magnitude - 1)
+time label = epoch end
+```
+
+Filtering is applied only to `Ax`, `Ay`, and `Az`. `Lux`, `Button`, and `Temperature` are not filtered.
 
 ## CSV Comparison Utility
 
-The CSV comparison script compares values by row and column position, not by header name. Ranges use Python-style indexing. For example, `1:4` selects columns 1, 2, and 3; `0:1000` selects the first 1000 rows; `:` selects all rows or columns.
+Use this utility to compare numeric values in two CSV files. If no row or column ranges are supplied, it skips the candidate header row, aligns the reference CSV to the first candidate timestamp, and compares all candidate rows. It also checks column counts and timestamp intervals, which helps catch accidental raw-vs-epoch comparisons.
 
-
-Optional arguments: `--reference-rows`, `--candidate-rows`, `--reference-cols`, `--candidate-cols`, and `--output`. 
-
-- If no row or column ranges are supplied, it skips the candidate CSV header row, aligns the reference CSV to the first candidate timestamp in column 0, and compares all candidate data rows.
-- In automatic mode, each compared row must have the same column count, and timestamps must keep the same adjacent and cumulative sampling interval in both files. This helps catch accidental raw-vs-epoch comparisons.
-- Omit `--output` to print the comparison summary only, or provide it to also save the comparison as JSON.
+Automatic comparison:
 
 ```bash
 python -m scripts.compare_csv \
   --reference data/reference/export.csv \
-  --candidate data/intermediate/sample_raw.csv
+  --candidate data/processed/sample_60s.csv
 ```
 
+Manual range comparison:
+
 ```bash
 python -m scripts.compare_csv \
   --reference data/reference/export.csv \
-  --candidate data/intermediate/sample_raw.csv \
+  --candidate data/processed/sample_60s.csv \
   --reference-rows 1:1001 \
   --candidate-rows 1:1001 \
   --reference-cols 1:4 \
   --candidate-cols 1:4 \
-  --output data/reports/sample_raw_compare.json  # optional
+  --output data/reports/sample_compare.json
 ```
 
-To quickly compare two saved comparison JSON files, for example to see whether a filtered or unfiltered output has smaller errors, use:
+Optional range parameters: `--reference-rows`, `--candidate-rows`, `--reference-cols`, and `--candidate-cols`. Omit `--output` to print only; provide it to also save the comparison JSON.
+
+To compare two saved comparison JSON files, for example when checking whether filtered or unfiltered output has smaller errors:
 
 ```bash
 python -m scripts.compare_comparison_json \
