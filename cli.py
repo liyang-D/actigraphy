@@ -388,10 +388,13 @@ def run_batch(args: argparse.Namespace) -> list[tuple[Path, Path]]:
             f"{extensions}"
         )
 
+    if args.verbose:
+        print(f"Found {len(input_paths)} input file(s)")
+
     outputs: list[tuple[Path, Path]] = []
-    for input_path in input_paths:
+    for file_index, input_path in enumerate(input_paths, start=1):
         if args.verbose:
-            print(f"Processing: {input_path}")
+            print(f"Processing file {file_index}/{len(input_paths)}: {input_path}")
 
         command_args = argparse.Namespace(
             reader=args.reader,
@@ -406,7 +409,11 @@ def run_batch(args: argparse.Namespace) -> list[tuple[Path, Path]]:
             max_pages=args.max_pages,
             verbose=args.verbose,
         )
-        outputs.append(run_process(command_args))
+        output = run_process(command_args)
+        outputs.append(output)
+
+        if args.verbose:
+            print(f"Completed file {file_index}/{len(input_paths)}")
 
     return outputs
 

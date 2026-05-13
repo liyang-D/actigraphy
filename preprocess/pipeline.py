@@ -65,6 +65,8 @@ def run_preprocessing(
     if verbose:
         print(f"Preprocessing with mode: {config.summary_mode}")
         print(f"Epoch length: {config.epoch}")
+        print(f"Input samples: {len(raw_data.data)}")
+        print(f"Sample rate: {raw_data.sample_rate_hz} Hz")
 
     working_data = raw_data.data.copy()
 
@@ -82,15 +84,24 @@ def run_preprocessing(
             high_cutoff_hz=config.high_cutoff_hz,
             order=config.filter_order,
         )
+    elif verbose:
+        print("Filtering disabled")
 
+    if verbose:
+        print("Computing SVM")
     working_data = add_geneactive_svm(working_data)
 
+    if verbose:
+        print("Aggregating epochs")
     summary = aggregate_epochs(
         data=working_data,
         epoch=config.epoch,
         summary_mode=config.summary_mode,
         standard_deviation_ddof=config.standard_deviation_ddof,
     )
+
+    if verbose:
+        print(f"Epoch rows generated: {len(summary)}")
 
     return EpochSummaryData(
         data=summary,
@@ -115,6 +126,7 @@ def preprocess_file(
     raw_data = load_raw_sample_csv(
         csv_path=input_csv_path,
         fallback_sample_rate_hz=fallback_sample_rate_hz,
+        verbose=verbose,
     )
 
     return preprocess_raw_data_to_files(
@@ -164,7 +176,12 @@ def preprocess_raw_data_to_files(
     )
     summary_data.metadata = metadata
 
+    if verbose:
+        print(f"Writing epoch CSV: {output_csv_path}")
     save_epoch_summary_csv(summary_data, output_csv_path)
+
+    if verbose:
+        print(f"Writing metadata: {output_metadata_path}")
     save_metadata(metadata, output_metadata_path)
 
     if verbose:

@@ -149,7 +149,8 @@ python -m cli read \
   --input data/raw/sample.bin \
   --output-dir data/intermediate \  # optional
   --output data/intermediate/sample_raw.csv \  # optional
-  --mode full
+  --mode full \
+  --verbose  # optional, recommended for progress
 ```
 
 ### Step 1B only
@@ -165,7 +166,8 @@ python -m cli preprocess \
   --filter yes \
   --low 0.5 \
   --high 20 \
-  --mode full-summary
+  --mode full-summary \
+  --verbose  # optional, recommended for progress
 ```
 
 ### Full pipeline
@@ -181,7 +183,8 @@ python -m cli process \
   --filter yes \
   --low 0.5 \
   --high 20 \
-  --summary-mode full-summary
+  --summary-mode full-summary \
+  --verbose  # optional, recommended for progress
 ```
 
 ### Batch processing
@@ -195,7 +198,8 @@ python -m cli batch \
   --filter yes \
   --low 0.5 \
   --high 20 \
-  --summary-mode full-summary
+  --summary-mode full-summary \
+  --verbose  # optional, recommended for progress
 ```
 
 ## CSV Comparison Utility

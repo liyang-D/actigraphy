@@ -54,6 +54,28 @@ def update_metadata_for_reader(
     return metadata
 
 
+def page_total_to_process(
+    number_of_pages: Any,
+    max_pages: int | None,
+) -> int | None:
+    total_pages = number_of_pages if isinstance(number_of_pages, int) else None
+
+    if total_pages is not None and max_pages is not None:
+        return min(total_pages, max_pages)
+
+    if total_pages is not None:
+        return total_pages
+
+    return max_pages
+
+
+def format_page_progress(page_index: int, total_pages: int | None) -> str:
+    if total_pages is None:
+        return f"{page_index}/?"
+
+    return f"{page_index}/{total_pages}"
+
+
 def read_geneactive_bin(
     input_path: Path,
     output_csv_path: Path | None = None,
@@ -97,6 +119,10 @@ def read_geneactive_bin(
 
     columns = get_output_columns(mode)
 
+    total_pages = page_total_to_process(
+        number_of_pages=header.decoder_context.get("number_of_pages"),
+        max_pages=max_pages,
+    )
     processed_pages = 0
     processed_rows = 0
 
@@ -104,16 +130,20 @@ def read_geneactive_bin(
         writer = csv.DictWriter(f, fieldnames=columns)
         writer.writeheader()
 
-        for page in iter_geneactive_pages(
-            path=input_path,
-            start_line_index=header.next_line_index,
-            max_pages=max_pages,
+        for page_number, page in enumerate(
+            iter_geneactive_pages(
+                path=input_path,
+                start_line_index=header.next_line_index,
+                max_pages=max_pages,
+            ),
+            start=1,
         ):
             if verbose:
                 print(
                     "Decoding page "
-                    f"{page.header.sequence_number} "
-                    f"at {page.header.page_time}"
+                    f"{format_page_progress(page_number, total_pages)} "
+                    f"(sequence {page.header.sequence_number}, "
+                    f"{page.header.page_time})"
                 )
 
             for row in decode_page(
@@ -158,17 +188,25 @@ def load_geneactive_samples(
     )
     columns = get_output_columns(mode)
 
-    rows: list[dict[str, Any]] = []
-    for page in iter_geneactive_pages(
-        path=input_path,
-        start_line_index=header.next_line_index,
+    total_pages = page_total_to_process(
+        number_of_pages=header.decoder_context.get("number_of_pages"),
         max_pages=max_pages,
+    )
+    rows: list[dict[str, Any]] = []
+    for page_number, page in enumerate(
+        iter_geneactive_pages(
+            path=input_path,
+            start_line_index=header.next_line_index,
+            max_pages=max_pages,
+        ),
+        start=1,
     ):
         if verbose:
             print(
                 "Decoding page "
-                f"{page.header.sequence_number} "
-                f"at {page.header.page_time}"
+                f"{format_page_progress(page_number, total_pages)} "
+                f"(sequence {page.header.sequence_number}, "
+                f"{page.header.page_time})"
             )
 
         rows.extend(

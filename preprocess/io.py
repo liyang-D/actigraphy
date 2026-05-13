@@ -81,9 +81,17 @@ def get_sample_rate_hz(
 def load_raw_sample_csv(
     csv_path: Path,
     fallback_sample_rate_hz: float | None = None,
+    verbose: bool = False,
 ) -> RawSampleData:
     csv_path = ensure_csv_path(Path(csv_path), "Input CSV path")
     metadata_path = default_raw_metadata_path(csv_path)
+
+    if verbose:
+        print(f"Loading raw sample CSV: {csv_path}")
+        if metadata_path.exists():
+            print(f"Using paired metadata: {metadata_path}")
+        else:
+            print(f"Paired metadata not found: {metadata_path}")
 
     metadata = load_metadata(metadata_path) if metadata_path.exists() else {}
     sample_rate_hz = get_sample_rate_hz(
@@ -91,10 +99,17 @@ def load_raw_sample_csv(
         fallback_sample_rate_hz=fallback_sample_rate_hz,
     )
 
+    if verbose:
+        print(f"Sample rate: {sample_rate_hz} Hz")
+
     data = pd.read_csv(csv_path)
 
     if "Time" not in data.columns:
         raise ValueError("Input CSV must contain a 'Time' column.")
+
+    if verbose:
+        print(f"Raw samples loaded: {len(data)} rows")
+        print("Parsing timestamps and numeric columns")
 
     data["Time"] = pd.to_datetime(data["Time"].map(parse_timestamp))
 
@@ -110,6 +125,9 @@ def load_raw_sample_csv(
         sample_rate_hz=sample_rate_hz,
     )
     raw_data.validate()
+
+    if verbose:
+        print("Raw sample CSV ready for preprocessing")
 
     return raw_data
 
