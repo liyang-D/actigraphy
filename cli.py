@@ -351,7 +351,7 @@ def run_process(args: argparse.Namespace) -> tuple[Path, Path]:
     )
 
     if args.verbose:
-        print("Decoding completed, starting to preprocess.")
+        print("Reader samples prepared in memory; starting preprocessing.")
 
     return preprocess_raw_data_to_files(
         raw_data=raw_data,

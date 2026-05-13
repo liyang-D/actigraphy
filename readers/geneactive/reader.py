@@ -20,6 +20,9 @@ from .pages import iter_geneactive_pages
 from utils import ensure_csv_path, parse_timestamp
 
 
+DATAFRAME_CHUNK_PAGES = 1000
+
+
 def get_output_columns(mode: str) -> list[str]:
     return get_reader_output_columns(mode)
 
@@ -74,6 +77,24 @@ def format_page_progress(page_index: int, total_pages: int | None) -> str:
         return f"{page_index}/?"
 
     return f"{page_index}/{total_pages}"
+
+
+def build_samples_dataframe(
+    rows: list[dict[str, Any]],
+    columns: list[str],
+    mode: str,
+) -> pd.DataFrame:
+    data = pd.DataFrame.from_records(rows, columns=columns)
+
+    if data.empty:
+        return data
+
+    data["Time"] = pd.to_datetime(data["Time"].map(parse_timestamp))
+
+    if mode == "full":
+        data = coerce_full_sensor_columns(data)
+
+    return data
 
 
 def read_geneactive_bin(
@@ -192,7 +213,11 @@ def load_geneactive_samples(
         number_of_pages=header.decoder_context.get("number_of_pages"),
         max_pages=max_pages,
     )
-    rows: list[dict[str, Any]] = []
+    chunks: list[pd.DataFrame] = []
+    chunk_rows: list[dict[str, Any]] = []
+    chunk_page_count = 0
+    chunk_number = 0
+    decoded_rows = 0
     for page_number, page in enumerate(
         iter_geneactive_pages(
             path=input_path,
@@ -209,18 +234,67 @@ def load_geneactive_samples(
                 f"{page.header.page_time})"
             )
 
-        rows.extend(
+        page_rows = list(
             decode_page(
                 page=page,
                 decoder_context=header.decoder_context,
                 mode=mode,
             )
         )
+        chunk_rows.extend(page_rows)
+        chunk_page_count += 1
+        decoded_rows += len(page_rows)
 
-    data = pd.DataFrame.from_records(rows, columns=columns)
-    if not data.empty:
-        data["Time"] = pd.to_datetime(data["Time"].map(parse_timestamp))
-        data = coerce_full_sensor_columns(data)
+        if chunk_page_count >= DATAFRAME_CHUNK_PAGES:
+            chunk_number += 1
+            if verbose:
+                print(
+                    "Building DataFrame chunk "
+                    f"{chunk_number} from {len(chunk_rows)} decoded samples"
+                )
+
+            chunk_data = build_samples_dataframe(
+                rows=chunk_rows,
+                columns=columns,
+                mode=mode,
+            )
+            chunks.append(chunk_data)
+
+            if verbose:
+                print(f"DataFrame chunk {chunk_number} ready: {len(chunk_data)} rows")
+
+            chunk_rows = []
+            chunk_page_count = 0
+
+    if chunk_rows:
+        chunk_number += 1
+        if verbose:
+            print(
+                "Building DataFrame chunk "
+                f"{chunk_number} from {len(chunk_rows)} decoded samples"
+            )
+
+        chunk_data = build_samples_dataframe(
+            rows=chunk_rows,
+            columns=columns,
+            mode=mode,
+        )
+        chunks.append(chunk_data)
+
+        if verbose:
+            print(f"DataFrame chunk {chunk_number} ready: {len(chunk_data)} rows")
+
+    if verbose:
+        print(f"Decoded samples: {decoded_rows}")
+        print(f"Combining {len(chunks)} DataFrame chunk(s)")
+
+    if chunks:
+        data = pd.concat(chunks, ignore_index=True)
+    else:
+        data = pd.DataFrame(columns=columns)
+
+    if verbose:
+        print(f"Sample DataFrame ready: {len(data)} rows")
 
     sample_rate_hz = header.decoder_context.get("measurement_frequency_hz")
     if sample_rate_hz is None:
