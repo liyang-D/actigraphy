@@ -25,13 +25,19 @@ def calibrate_axis(raw_value: int, gain: float, offset: float) -> float:
     return (raw_value * 100 - offset) / gain
 
 
-def decode_light(raw_light_button: int, lux_factor: float | None, volts_factor: float | None) -> float | int:
+def decode_light(
+    raw_light_button: int,
+    lux_factor: float | None,
+    volts_factor: float | None,
+) -> int:
     light_raw = raw_light_button >> 2
 
     if lux_factor is None or volts_factor is None or volts_factor == 0:
-        return light_raw
+        lux = float(light_raw)
+    else:
+        lux = light_raw * lux_factor / volts_factor
 
-    return light_raw * lux_factor / volts_factor
+    return int(round(lux))
 
 
 def decode_button(raw_light_button: int) -> int:

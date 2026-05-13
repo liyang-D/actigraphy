@@ -8,6 +8,12 @@ import pandas as pd
 
 RAW_MOTION_COLUMNS = ["Time", "Ax", "Ay", "Az"]
 RAW_FULL_COLUMNS = ["Time", "Ax", "Ay", "Az", "Lux", "Button", "Temperature"]
+LUX_COLUMN = "Lux"
+LUX_DTYPE = "uint16"
+BUTTON_COLUMN = "Button"
+BUTTON_DTYPE = "uint8"
+TEMPERATURE_COLUMN = "Temperature"
+TEMPERATURE_DTYPE = "float32"
 
 EPOCH_OUTPUT_COLUMNS: dict[str, list[str]] = {
     "svm": ["Time", "SVM_sum"],
@@ -47,6 +53,55 @@ def get_epoch_output_columns(summary_mode: str) -> list[str]:
         ) from exc
 
 
+def coerce_button_column(data: pd.DataFrame) -> pd.DataFrame:
+    if BUTTON_COLUMN not in data.columns:
+        return data
+
+    button = pd.to_numeric(data[BUTTON_COLUMN], errors="coerce")
+
+    if button.isna().any():
+        raise ValueError("Button column must contain only 0/1 values.")
+
+    if not button.isin([0, 1]).all():
+        raise ValueError("Button column must contain only 0/1 values.")
+
+    data[BUTTON_COLUMN] = button.astype(BUTTON_DTYPE)
+    return data
+
+
+def coerce_lux_column(data: pd.DataFrame) -> pd.DataFrame:
+    if LUX_COLUMN not in data.columns:
+        return data
+
+    lux = pd.to_numeric(data[LUX_COLUMN], errors="coerce")
+
+    if lux.isna().any():
+        raise ValueError("Lux column must contain numeric values.")
+
+    data[LUX_COLUMN] = lux.round().astype(LUX_DTYPE)
+    return data
+
+
+def coerce_temperature_column(data: pd.DataFrame) -> pd.DataFrame:
+    if TEMPERATURE_COLUMN not in data.columns:
+        return data
+
+    temperature = pd.to_numeric(data[TEMPERATURE_COLUMN], errors="coerce")
+
+    if temperature.isna().any():
+        raise ValueError("Temperature column must contain numeric values.")
+
+    data[TEMPERATURE_COLUMN] = temperature.astype(TEMPERATURE_DTYPE)
+    return data
+
+
+def coerce_full_sensor_columns(data: pd.DataFrame) -> pd.DataFrame:
+    data = coerce_lux_column(data)
+    data = coerce_button_column(data)
+    data = coerce_temperature_column(data)
+    return data
+
+
 @dataclass
 class RawSampleData:
     """Standard sample-level data passed from Step 1A to Step 1B."""
@@ -64,6 +119,23 @@ class RawSampleData:
 
         if self.sample_rate_hz <= 0:
             raise ValueError("sample_rate_hz must be positive.")
+
+        if BUTTON_COLUMN in self.data.columns:
+            if str(self.data[BUTTON_COLUMN].dtype) != BUTTON_DTYPE:
+                raise ValueError(f"Button column must use {BUTTON_DTYPE} dtype.")
+
+            if not self.data[BUTTON_COLUMN].isin([0, 1]).all():
+                raise ValueError("Button column must contain only 0/1 values.")
+
+        if LUX_COLUMN in self.data.columns:
+            if str(self.data[LUX_COLUMN].dtype) != LUX_DTYPE:
+                raise ValueError(f"Lux column must use {LUX_DTYPE} dtype.")
+
+        if TEMPERATURE_COLUMN in self.data.columns:
+            if str(self.data[TEMPERATURE_COLUMN].dtype) != TEMPERATURE_DTYPE:
+                raise ValueError(
+                    f"Temperature column must use {TEMPERATURE_DTYPE} dtype."
+                )
 
     def copy(self) -> "RawSampleData":
         return RawSampleData(

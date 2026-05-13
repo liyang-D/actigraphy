@@ -6,7 +6,7 @@ from typing import Any
 
 import pandas as pd
 
-from models import EpochSummaryData, RawSampleData
+from models import EpochSummaryData, RawSampleData, coerce_full_sensor_columns
 from utils import (
     ensure_csv_path,
     metadata_path_for_csv,
@@ -113,9 +113,11 @@ def load_raw_sample_csv(
 
     data["Time"] = pd.to_datetime(data["Time"].map(parse_timestamp))
 
-    for column in ["Ax", "Ay", "Az", "Lux", "Button", "Temperature"]:
+    for column in ["Ax", "Ay", "Az"]:
         if column in data.columns:
             data[column] = pd.to_numeric(data[column], errors="coerce")
+
+    data = coerce_full_sensor_columns(data)
 
     data = data.sort_values("Time").reset_index(drop=True)
 

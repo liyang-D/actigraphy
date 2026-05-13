@@ -6,7 +6,7 @@ from typing import Any
 
 import pandas as pd
 
-from models import RawSampleData
+from models import RawSampleData, coerce_full_sensor_columns
 from ..base import (
     BaseDeviceReader,
     default_metadata_path,
@@ -220,6 +220,7 @@ def load_geneactive_samples(
     data = pd.DataFrame.from_records(rows, columns=columns)
     if not data.empty:
         data["Time"] = pd.to_datetime(data["Time"].map(parse_timestamp))
+        data = coerce_full_sensor_columns(data)
 
     sample_rate_hz = header.decoder_context.get("measurement_frequency_hz")
     if sample_rate_hz is None:
