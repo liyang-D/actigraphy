@@ -6,6 +6,8 @@ It currently supports GENEActiv `.bin` files and is structured so other device r
 
 ## Installation
 
+Python 3.10 or newer is recommended.
+
 ```bash
 python -m pip install -r requirements.txt
 ```
@@ -44,11 +46,7 @@ This uses the default settings:
 ```text
 reader = geneactive
 epoch = 60s
-filter = yes
-filter type = Butterworth bandpass
-filter order = 4
-low cutoff = 0.5 Hz
-high cutoff = 20 Hz
+filter = no
 summary mode = full-summary
 workers = 1
 ```
@@ -182,7 +180,7 @@ The default Step 1B settings are:
 
 ```text
 epoch = 60s
-filter = yes
+filter = no
 filter type = Butterworth bandpass
 filter order = 4
 low cutoff = 0.5 Hz
@@ -192,7 +190,7 @@ SVM method = GENEActiv-style abs(vector_magnitude - 1)
 time label = epoch start
 ```
 
-Filtering is applied only to `Ax`, `Ay`, and `Az`. `Lux`, `Button`, and `Temperature` are not filtered.
+Optional filtering uses a Butterworth bandpass filter on `Ax`, `Ay`, and `Az` only. It can be enabled with `--filter yes`, and `--low` / `--high` can be adjusted to smooth motion signals. `Lux`, `Button`, and `Temperature` are not filtered. To reproduce GENEActiv official exports, `--filter no` is usually closer.
 
 ## Full Pipeline
 
@@ -352,7 +350,7 @@ python -m scripts.compare_comparison_json \
 
 This project references and builds upon the following resources:
 
-- https://activinsights.com/wp-content/uploads/2022/06/GENEActiv-Instructions-for-Use-v1_31Mar2022.pdf
+- https://activinsights.com/wp-content/uploads/2025/01/GENEActiv-1.2-IFU-rev-7.pdf
 - https://sleeptoolkit.activinsights.net/
 - https://github.com/danwjoyce/accel-scripts
 

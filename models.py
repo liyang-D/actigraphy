@@ -173,7 +173,7 @@ class PreprocessConfig:
     """Configuration for Step 1B preprocessing."""
 
     epoch: str = "60s"
-    filter_enabled: bool = True
+    filter_enabled: bool = False
     filter_type: str = "butterworth"
     filter_mode: str = "bandpass"
     filter_order: int = 4

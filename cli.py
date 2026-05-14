@@ -92,7 +92,7 @@ def build_parser() -> argparse.ArgumentParser:
     preprocess_parser.add_argument(
         "--filter",
         choices=["yes", "no"],
-        default="yes",
+        default="no",
         help="Apply Butterworth bandpass filter to Ax, Ay and Az.",
     )
     preprocess_parser.add_argument(
@@ -167,7 +167,7 @@ def build_parser() -> argparse.ArgumentParser:
     process_parser.add_argument(
         "--filter",
         choices=["yes", "no"],
-        default="yes",
+        default="no",
         help="Apply Butterworth bandpass filter to Ax, Ay and Az.",
     )
     process_parser.add_argument(
@@ -236,7 +236,7 @@ def build_parser() -> argparse.ArgumentParser:
     batch_parser.add_argument(
         "--filter",
         choices=["yes", "no"],
-        default="yes",
+        default="no",
         help="Apply Butterworth bandpass filter to Ax, Ay and Az.",
     )
     batch_parser.add_argument(
