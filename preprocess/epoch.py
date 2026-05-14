@@ -10,9 +10,17 @@ from utils import format_timestamp_millis
 EPOCH_TIME_COLUMN = "_epoch_time"
 
 
-def add_epoch_time(data: pd.DataFrame, epoch: str) -> pd.DataFrame:
+def add_epoch_time(
+    data: pd.DataFrame,
+    epoch: str,
+    anchor_time: pd.Timestamp | None = None,
+) -> pd.DataFrame:
     data = data.copy()
-    data[EPOCH_TIME_COLUMN] = data["Time"].dt.floor(epoch)
+    anchor_time = data["Time"].iloc[0] if anchor_time is None else anchor_time
+    epoch_offset = pd.to_timedelta(epoch)
+    elapsed = data["Time"] - anchor_time
+    epoch_index = elapsed // epoch_offset
+    data[EPOCH_TIME_COLUMN] = anchor_time + (epoch_index * epoch_offset)
     return data
 
 
@@ -21,11 +29,12 @@ def aggregate_epochs(
     epoch: str,
     summary_mode: str,
     standard_deviation_ddof: int = 0,
+    anchor_time: pd.Timestamp | None = None,
 ) -> pd.DataFrame:
     if data.empty:
         raise ValueError("Cannot aggregate an empty input CSV.")
 
-    data = add_epoch_time(data, epoch=epoch)
+    data = add_epoch_time(data, epoch=epoch, anchor_time=anchor_time)
     grouped = data.groupby(EPOCH_TIME_COLUMN, sort=True)
 
     output = pd.DataFrame(index=grouped.size().index)

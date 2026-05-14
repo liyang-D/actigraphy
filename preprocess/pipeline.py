@@ -98,6 +98,7 @@ def run_preprocessing(
         epoch=config.epoch,
         summary_mode=config.summary_mode,
         standard_deviation_ddof=config.standard_deviation_ddof,
+        anchor_time=raw_data.data["Time"].iloc[0],
     )
 
     if verbose:

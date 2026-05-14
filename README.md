@@ -188,6 +188,7 @@ high cutoff = 20 Hz
 summary mode = full-summary
 SVM method = GENEActiv-style abs(vector_magnitude - 1)
 time label = epoch start
+epoch anchor = first sample time
 ```
 
 Optional filtering uses a Butterworth bandpass filter on `Ax`, `Ay`, and `Az` only. It can be enabled with `--filter yes`, and `--low` / `--high` can be adjusted to smooth motion signals. `Lux`, `Button`, and `Temperature` are not filtered. To reproduce GENEActiv official exports, `--filter no` is usually closer.
