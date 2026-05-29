@@ -15,7 +15,7 @@ from preprocess.io import (
     save_metadata,
 )
 from preprocess.svm import add_geneactive_svm
-from utils import ensure_csv_path
+from utils import ensure_csv_path, validate_output_precision
 
 
 def update_metadata_for_preprocessing(
@@ -117,10 +117,12 @@ def preprocess_file(
     output_dir: Path | None = None,
     config: PreprocessConfig | None = None,
     fallback_sample_rate_hz: float | None = None,
+    precision: int = 5,
     verbose: bool = False,
 ) -> tuple[Path, Path]:
     input_csv_path = Path(input_csv_path)
     config = PreprocessConfig() if config is None else config
+    precision = validate_output_precision(precision)
     if output_csv_path is not None:
         output_csv_path = ensure_csv_path(output_csv_path, "Output CSV path")
 
@@ -136,6 +138,7 @@ def preprocess_file(
         output_csv_path=output_csv_path,
         output_dir=output_dir,
         config=config,
+        precision=precision,
         verbose=verbose,
     )
 
@@ -146,10 +149,12 @@ def preprocess_raw_data_to_files(
     output_csv_path: Path | None = None,
     output_dir: Path | None = None,
     config: PreprocessConfig | None = None,
+    precision: int = 5,
     verbose: bool = False,
 ) -> tuple[Path, Path]:
     input_path = Path(input_path)
     config = PreprocessConfig() if config is None else config
+    precision = validate_output_precision(precision)
 
     if output_csv_path is None:
         output_csv_path = default_epoch_output_csv_path(
@@ -179,7 +184,7 @@ def preprocess_raw_data_to_files(
 
     if verbose:
         print(f"Writing epoch CSV: {output_csv_path}")
-    save_epoch_summary_csv(summary_data, output_csv_path)
+    save_epoch_summary_csv(summary_data, output_csv_path, precision=precision)
 
     if verbose:
         print(f"Writing metadata: {output_metadata_path}")

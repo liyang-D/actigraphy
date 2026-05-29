@@ -60,6 +60,7 @@ class BaseDeviceReader(ABC):
         mode: str = "full",
         max_pages: int | None = None,
         workers: int = 1,
+        precision: int = 5,
         verbose: bool = False,
     ) -> tuple[Path, Path]:
         """Read a device file and write Step 1A CSV and metadata outputs."""

@@ -63,6 +63,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Reader decode worker processes. Defaults to 1.",
     )
     read_parser.add_argument(
+        "--precision",
+        type=int,
+        default=5,
+        help="Significant figures for numeric CSV output. Defaults to 5.",
+    )
+    read_parser.add_argument(
         "--verbose",
         action="store_true",
         help="Print progress messages.",
@@ -124,6 +130,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="Optional output CSV path. Must end with .csv.",
+    )
+    preprocess_parser.add_argument(
+        "--precision",
+        type=int,
+        default=5,
+        help="Significant figures for numeric CSV output. Defaults to 5.",
     )
     preprocess_parser.add_argument(
         "--verbose",
@@ -201,6 +213,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Reader decode worker processes. Defaults to 1.",
     )
     process_parser.add_argument(
+        "--precision",
+        type=int,
+        default=5,
+        help="Significant figures for numeric CSV output. Defaults to 5.",
+    )
+    process_parser.add_argument(
         "--verbose",
         action="store_true",
         help="Print progress messages.",
@@ -270,6 +288,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Reader decode worker processes per input file. Defaults to 1.",
     )
     batch_parser.add_argument(
+        "--precision",
+        type=int,
+        default=5,
+        help="Significant figures for numeric CSV output. Defaults to 5.",
+    )
+    batch_parser.add_argument(
         "--verbose",
         action="store_true",
         help="Print progress messages.",
@@ -309,6 +333,7 @@ def run_read(args: argparse.Namespace) -> tuple[Path, Path]:
         mode=args.mode,
         max_pages=max_pages,
         workers=normalized_workers(args.workers),
+        precision=args.precision,
         verbose=args.verbose,
     )
 
@@ -328,6 +353,7 @@ def run_preprocess(args: argparse.Namespace) -> tuple[Path, Path]:
         output_dir=args.output_dir,
         config=config,
         fallback_sample_rate_hz=args.sample_rate,
+        precision=args.precision,
         verbose=args.verbose,
     )
 
@@ -389,6 +415,7 @@ def run_process(args: argparse.Namespace) -> tuple[Path, Path]:
         output_csv_path=output_csv_path,
         output_dir=args.output_dir,
         config=config,
+        precision=args.precision,
         verbose=args.verbose,
     )
 
@@ -441,6 +468,7 @@ def run_batch(args: argparse.Namespace) -> list[tuple[Path, Path]]:
             output=None,
             max_pages=args.max_pages,
             workers=args.workers,
+            precision=args.precision,
             verbose=args.verbose,
         )
         output = run_process(command_args)

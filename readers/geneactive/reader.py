@@ -20,7 +20,7 @@ from .decode import decode_page_columns
 from .header import parse_geneactive_main_header
 from .pages import iter_geneactive_pages
 from .models import GeneActivePage
-from utils import ensure_csv_path, parse_timestamp
+from utils import ensure_csv_path, format_csv_value, parse_timestamp, validate_output_precision
 
 
 DATAFRAME_CHUNK_PAGES = 1000
@@ -257,11 +257,13 @@ def read_geneactive_bin(
     mode: str = "full",
     max_pages: int | None = None,
     workers: int = DEFAULT_DECODE_WORKERS,
+    precision: int = 5,
     verbose: bool = False,
 ) -> tuple[Path, Path]:
     if mode not in {"motion", "full"}:
         raise ValueError("mode must be either 'motion' or 'full'.")
 
+    precision = validate_output_precision(precision)
     input_path = Path(input_path)
 
     if output_csv_path is None:
@@ -317,7 +319,11 @@ def read_geneactive_bin(
             workers=workers,
             verbose=verbose,
         ):
-            writer.writerows(zip(*(column_batch[column] for column in columns)))
+            rows = zip(*(column_batch[column] for column in columns))
+            writer.writerows(
+                [format_csv_value(value, precision) for value in row]
+                for row in rows
+            )
             processed_pages += end_page - start_page + 1
             processed_rows += len(column_batch["Time"])
 
@@ -432,6 +438,7 @@ class GeneActiveReader(BaseDeviceReader):
         mode: str = "full",
         max_pages: int | None = None,
         workers: int = DEFAULT_DECODE_WORKERS,
+        precision: int = 5,
         verbose: bool = False,
     ) -> tuple[Path, Path]:
         return read_geneactive_bin(
@@ -441,6 +448,7 @@ class GeneActiveReader(BaseDeviceReader):
             mode=mode,
             max_pages=max_pages,
             workers=workers,
+            precision=precision,
             verbose=verbose,
         )
 

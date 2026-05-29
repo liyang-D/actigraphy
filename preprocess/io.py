@@ -8,11 +8,13 @@ import pandas as pd
 
 from models import EpochSummaryData, RawSampleData, coerce_full_sensor_columns
 from utils import (
+    csv_float_format,
     ensure_csv_path,
     metadata_path_for_csv,
     normalize_epoch_label,
     parse_float,
     parse_timestamp,
+    validate_output_precision,
 )
 
 
@@ -134,7 +136,16 @@ def load_raw_sample_csv(
     return raw_data
 
 
-def save_epoch_summary_csv(summary_data: EpochSummaryData, output_path: Path) -> None:
+def save_epoch_summary_csv(
+    summary_data: EpochSummaryData,
+    output_path: Path,
+    precision: int = 5,
+) -> None:
     summary_data.validate()
+    precision = validate_output_precision(precision)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    summary_data.data.to_csv(output_path, index=False)
+    summary_data.data.to_csv(
+        output_path,
+        index=False,
+        float_format=csv_float_format(precision),
+    )

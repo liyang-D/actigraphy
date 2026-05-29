@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import math
 import re
 from datetime import datetime
+from numbers import Integral, Real
 from pathlib import Path
 
 
@@ -96,6 +98,27 @@ def ensure_csv_path(path: Path, label: str = "CSV path") -> Path:
         raise ValueError(f"{label} must end with .csv: {path}")
 
     return path
+
+
+def validate_output_precision(precision: int) -> int:
+    if precision < 1:
+        raise ValueError("--precision must be greater than or equal to 1.")
+
+    return precision
+
+
+def csv_float_format(precision: int) -> str:
+    precision = validate_output_precision(precision)
+    return f"%.{precision}g"
+
+
+def format_csv_value(value, precision: int):
+    if isinstance(value, Real) and not isinstance(value, Integral):
+        numeric_value = float(value)
+        if math.isfinite(numeric_value):
+            return f"{numeric_value:.{precision}g}"
+
+    return value
 
 
 def metadata_path_for_csv(csv_path: Path) -> Path:

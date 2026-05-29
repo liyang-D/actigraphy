@@ -113,14 +113,17 @@ python -m cli read \
   --output data/intermediate/sample_raw.csv \
   --mode full \
   --workers 2 \
+  --precision 5 \
   --verbose
 ```
 
-Useful optional parameters: `--output-dir`, `--output`, `--mode`, `--workers`, and `--verbose`.
+Useful optional parameters: `--output-dir`, `--output`, `--mode`, `--workers`, `--precision`, and `--verbose`.
 
 Increasing `--workers` allows parallel processing and may speed up decoding depending on available hardware performance.
 
 If `--output` is used, it must end with `.csv`. The metadata file name is generated automatically from that CSV path.
+
+`--precision` controls numeric CSV output significant figures. The default is 5.
 
 ## Step 1B: Preprocessing
 
@@ -171,10 +174,11 @@ python -m cli preprocess \
   --low 0.5 \
   --high 20 \
   --mode full-summary \
+  --precision 5 \
   --verbose
 ```
 
-Useful optional parameters: `--output-dir`, `--output`, `--epoch`, `--filter`, `--low`, `--high`, `--mode`, `--sample-rate`, and `--verbose`.
+Useful optional parameters: `--output-dir`, `--output`, `--epoch`, `--filter`, `--low`, `--high`, `--mode`, `--sample-rate`, `--precision`, and `--verbose`.
 
 The default Step 1B settings are:
 
@@ -189,6 +193,7 @@ summary mode = full-summary
 SVM method = GENEActiv-style abs(vector_magnitude - 1)
 time label = epoch start
 epoch anchor = first sample time
+CSV numeric precision = 5 significant figures
 ```
 
 Optional filtering uses a Butterworth bandpass filter on `Ax`, `Ay`, and `Az` only. It can be enabled with `--filter yes`, and `--low` / `--high` can be adjusted to smooth motion signals. `Lux`, `Button`, and `Temperature` are not filtered. To reproduce GENEActiv official exports, `--filter no` is usually closer.
@@ -227,10 +232,11 @@ python -m cli process \
   --high 20 \
   --summary-mode full-summary \
   --workers 2 \
+  --precision 5 \
   --verbose
 ```
 
-Useful optional parameters: `--reader`, `--output-dir`, `--output`, `--epoch`, `--filter`, `--low`, `--high`, `--summary-mode`, `--workers`, and `--verbose`.
+Useful optional parameters: `--reader`, `--output-dir`, `--output`, `--epoch`, `--filter`, `--low`, `--high`, `--summary-mode`, `--workers`, `--precision`, and `--verbose`.
 
 Default parameter values are the same as the Step 1B defaults above.
 
@@ -259,10 +265,11 @@ python -m cli batch \
   --high 20 \
   --summary-mode full-summary \
   --workers 2 \
+  --precision 5 \
   --verbose
 ```
 
-Useful optional parameters: `--reader`, `--output-dir`, `--epoch`, `--filter`, `--low`, `--high`, `--summary-mode`, `--workers`, and `--verbose`.
+Useful optional parameters: `--reader`, `--output-dir`, `--epoch`, `--filter`, `--low`, `--high`, `--summary-mode`, `--workers`, `--precision`, and `--verbose`.
 
 ## Sleep Report PDF
 
