@@ -1,8 +1,10 @@
-# Actigraphy Processing Pipeline
+# Actigraphy Epoching
 
-This repository converts device actigraphy files into CSV outputs for research analysis.
+This repository is Step 1 of the actigraphy analysis pipeline. It reads raw device actigraphy files and preprocesses them into sample-level and epoch-level CSV outputs for downstream sleep and activity metric calculation.
 
 It currently supports GENEActiv `.bin` files and is structured so other device readers can be added later.
+
+Step 2 is handled in [`actigraphy-sleep-metrics`](https://github.com/infernalzeus/actigraphy-sleep-metrics), which consumes the epoch-level outputs from this repository to calculate higher-level sleep and activity metrics.
 
 ## Installation
 
@@ -20,7 +22,10 @@ Device file
   -> sample-level CSV + metadata
   -> Step 1B: Preprocessing
   -> epoch-level CSV + metadata
+  -> Step 2: Sleep/activity metrics
 ```
+
+Step 2 repository: [`actigraphy-sleep-metrics`](https://github.com/infernalzeus/actigraphy-sleep-metrics)
 
 The CSV contains only the processed data values. Metadata such as device / experiment / participant information and preprocessing parameters is stored separately in a paired metadata file. This keeps the CSV lightweight and makes downstream data loading and anonymisation easier.
 
@@ -366,7 +371,7 @@ This project references and builds upon the following resources:
 
 If you encounter any issues or have suggestions for improvements, feel free to email [leon.dou@kmms.ac.uk](mailto:leon.dou@kmms.ac.uk).
 
-## License
+## Licence
 
 This project is licensed under the MIT License.
 
