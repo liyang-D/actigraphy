@@ -236,6 +236,7 @@ def build_samples_dataframe(
     column_batch: ColumnBatch,
     columns: list[str],
     mode: str,
+    coerce_full: bool = True,
 ) -> pd.DataFrame:
     data = pd.DataFrame(column_batch, columns=columns)
 
@@ -244,7 +245,7 @@ def build_samples_dataframe(
 
     data["Time"] = pd.to_datetime(data["Time"].map(parse_timestamp))
 
-    if mode == "full":
+    if mode == "full" and coerce_full:
         data = coerce_full_sensor_columns(data)
 
     return data
@@ -426,6 +427,69 @@ def load_geneactive_samples(
     return raw_data
 
 
+def iter_geneactive_sample_chunks(
+    input_path: Path,
+    mode: str = "full",
+    max_pages: int | None = None,
+    workers: int = DEFAULT_DECODE_WORKERS,
+    verbose: bool = False,
+) -> tuple[Iterator[pd.DataFrame], dict[str, Any], float]:
+    if mode not in {"motion", "full"}:
+        raise ValueError("mode must be either 'motion' or 'full'.")
+
+    input_path = Path(input_path)
+
+    if verbose:
+        print(f"Streaming GENEActiv samples: {input_path}")
+
+    header = parse_geneactive_main_header(input_path)
+    metadata = update_metadata_for_reader(
+        metadata=header.metadata,
+        output_csv_path=None,
+        mode=mode,
+        max_pages=max_pages,
+        workers=workers,
+    )
+    columns = get_output_columns(mode)
+    total_pages = page_total_to_process(
+        number_of_pages=header.decoder_context.get("number_of_pages"),
+        max_pages=max_pages,
+    )
+    sample_rate_hz = header.decoder_context.get("measurement_frequency_hz")
+    if sample_rate_hz is None:
+        raise ValueError("Missing measurement frequency in GENEActiv header.")
+
+    def chunks() -> Iterator[pd.DataFrame]:
+        chunk_number = 0
+        for start_page, end_page, column_batch in iter_decoded_column_chunks(
+            input_path=input_path,
+            start_line_index=header.next_line_index,
+            decoder_context=header.decoder_context,
+            mode=mode,
+            columns=columns,
+            max_pages=max_pages,
+            total_pages=total_pages,
+            workers=workers,
+            verbose=verbose,
+        ):
+            chunk_number += 1
+            chunk_data = build_samples_dataframe(
+                column_batch=column_batch,
+                columns=columns,
+                mode=mode,
+                coerce_full=False,
+            )
+            if verbose:
+                print(
+                    "Streaming DataFrame chunk "
+                    f"{chunk_number}: {len(chunk_data)} samples "
+                    f"(pages {format_page_chunk_progress(start_page, end_page, total_pages)})"
+                )
+            yield chunk_data
+
+    return chunks(), metadata, float(sample_rate_hz)
+
+
 class GeneActiveReader(BaseDeviceReader):
     name = "geneactive"
     supported_extensions = (".bin",)
@@ -461,6 +525,22 @@ class GeneActiveReader(BaseDeviceReader):
         verbose: bool = False,
     ) -> RawSampleData:
         return load_geneactive_samples(
+            input_path=input_path,
+            mode=mode,
+            max_pages=max_pages,
+            workers=workers,
+            verbose=verbose,
+        )
+
+    def iter_sample_chunks(
+        self,
+        input_path: Path,
+        mode: str = "full",
+        max_pages: int | None = None,
+        workers: int = DEFAULT_DECODE_WORKERS,
+        verbose: bool = False,
+    ) -> tuple[Iterator[pd.DataFrame], dict[str, Any], float]:
+        return iter_geneactive_sample_chunks(
             input_path=input_path,
             mode=mode,
             max_pages=max_pages,

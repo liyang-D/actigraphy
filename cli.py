@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from models import PreprocessConfig
-from preprocess import preprocess_file, preprocess_raw_data_to_files
+from preprocess.streaming import preprocess_chunks_to_files, preprocess_file_streaming
 from readers import available_readers, get_reader
 from utils import ensure_csv_path, parse_yes_no
 
@@ -347,7 +347,7 @@ def run_preprocess(args: argparse.Namespace) -> tuple[Path, Path]:
         summary_mode=args.mode,
     )
 
-    return preprocess_file(
+    return preprocess_file_streaming(
         input_csv_path=args.input,
         output_csv_path=optional_csv_output_path(args.output),
         output_dir=args.output_dir,
@@ -398,7 +398,12 @@ def run_process(args: argparse.Namespace) -> tuple[Path, Path]:
     reader = get_reader(args.reader)
     output_csv_path = optional_csv_output_path(args.output)
 
-    raw_data = reader.load_samples(
+    if not hasattr(reader, "iter_sample_chunks"):
+        raise NotImplementedError(
+            f"{reader.name} does not support streaming sample chunks."
+        )
+
+    chunks, metadata, sample_rate_hz = reader.iter_sample_chunks(
         input_path=args.input,
         mode=reader_mode,
         max_pages=normalized_max_pages(args.max_pages),
@@ -407,10 +412,12 @@ def run_process(args: argparse.Namespace) -> tuple[Path, Path]:
     )
 
     if args.verbose:
-        print("Reader samples prepared in memory; starting preprocessing.")
+        print("Reader sample stream prepared; starting streaming preprocessing.")
 
-    return preprocess_raw_data_to_files(
-        raw_data=raw_data,
+    return preprocess_chunks_to_files(
+        chunks=chunks,
+        metadata=metadata,
+        sample_rate_hz=sample_rate_hz,
         input_path=args.input,
         output_csv_path=output_csv_path,
         output_dir=args.output_dir,
